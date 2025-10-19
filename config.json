@@ -15,10 +15,10 @@
             ]
         },
         {
-            "role": "western_region_sales_manager",
+            "role": "north_eastern_sales_manager",
             "policy": [
-                {"column": "Region", "values": ["Western"]},
-                {"column": "State", "values": ["__all__"]}
+                {"column": "Region", "values": ["Northern", "Eastern"]},
+                {"column": "State", "values": ["Massachusetts", "New York", "Pennsylvania", "Rhode Island", "Vermont"]}
             ]
         },
         {
