@@ -20,7 +20,7 @@ type PolicyItem struct {
 }
 
 type Policy struct {
-	Role   string `json:"role"`
+	Role   string       `json:"role"`
 	Policy []PolicyItem `json:"policy"`
 }
 
@@ -87,7 +87,7 @@ func InitDb() error {
 	create table if not exists policies(role varchar, control_column varchar, value varchar);
 	delete from policies;
 		`); err != nil {
-			return err
-		}
+		return err
+	}
 	return nil
 }
