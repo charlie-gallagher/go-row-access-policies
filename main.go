@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 	"log"
 	"os"
-	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	_ "modernc.org/sqlite"
 )
@@ -82,25 +82,9 @@ func main() {
 	fmt.Println(ex_policy.ToJson())
 }
 
+// Load the role policies from the config file
 func LoadRolePolicies(fname string) (*Config, error) {
-	// Validate the config file against the schema
-	schema_fname := "config_schema.json"
-	c := jsonschema.NewCompiler()
-	schema, err := c.Compile(schema_fname)
-	if err != nil {
-		return nil, err
-	}
-
-    f, err := os.Open(fname)
-	if err != nil {
-		return nil, err
-	}
-	inst, err := jsonschema.UnmarshalJSON(f)
-	if err != nil {
-		return nil, err
-	}
-	f.Close()
-	if err := schema.Validate(inst); err != nil {
+	if err := ValidateConfig(fname); err != nil {
 		return nil, err
 	}
 	data, err := os.ReadFile(fname)
@@ -112,6 +96,30 @@ func LoadRolePolicies(fname string) (*Config, error) {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// Validate the config file against the schema
+func ValidateConfig(fname string) error {
+	schema_fname := "config_schema.json"
+	c := jsonschema.NewCompiler()
+	schema, err := c.Compile(schema_fname)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Open(fname)
+	if err != nil {
+		return err
+	}
+	inst, err := jsonschema.UnmarshalJSON(f)
+	if err != nil {
+		return err
+	}
+	f.Close()
+	if err := schema.Validate(inst); err != nil {
+		return err
+	}
+	return nil
 }
 
 func InitDb(db *sql.DB) error {
