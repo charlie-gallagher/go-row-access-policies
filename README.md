@@ -1,17 +1,17 @@
 # Row access control program
+In BI applications, programs typically offer row-based controls that limit what
+data certain users can view.
+
 At IXIS we have row controls, and I wanted to both think critically about how
-we're doing this and at the same time work on my golang skills, so here we are.
+we're doing this and at the same time work on my golang skills.
 The goal is to create a service that another program can invoke to figure out
 what rows of a dataset a user has access to.
 
 The model is a separation of policy and enforcement -- this module will control
 the policy, and some other module will control enforcement when it's necessary.
-
-But that's not exactly it. It's closer to an information flow constraint,
-because certain pieces of information are available to the query program, but
-when you return data, it should be a subset, depending on the policy. But to
-implement this, I'm thinking of doing it in a policy/enforcement style. Maybe
-that's the wrong approach, but it's simple to implement.
+I'm also going to work on the language that these services use to communicate
+with each other (e.g. does the policy know what a database column is, or does
+it use a higher-level abstraction?).
 
 # Implementation ideas
 ## Overview of our current system
@@ -28,7 +28,7 @@ user/group has access to. An imaginary policy might look something like this:
 ```json
 {
     "policy": {
-        "table": {
+        "my_table": {
             "access": [
                 {"column": "region", "values": ["Eastern", "Western"]},
                 ...
@@ -42,8 +42,7 @@ Each control column maps directly to a user or group identifier. If it were a
 geographically-based system, every dataset that contains geo data would have to
 have standard columns like "Region" and "State".
 
-The implementation is that we do a basic conversion from a policy statement into
-SQL:
+Our implementation maps a policy statement direclty into SQL:
 
 ```
 {"column": "region", "values": ["Eastern", "Western"]}
@@ -55,12 +54,7 @@ A typo could mean accidentally leaking sensitive information, so it's critical
 that the policy is written carefully and updated when the table is updated.
 
 
-## Proposed system
-For this test system, I want to lean into this idea of a user credential (group,
-user id, etc.). I'd like the system to be a little safer, but also to put more
-of the enforcement effort on the query engine. I might consider separating the
-physical layouts of the data warehouse tables from the policies. But frankly,
-I'm not sure what the best policy is going to be. Some ideas:
+## Proposed systems
 
 ### High-level policies
 The policy is stated in terms of a group and its associated values. If the user
