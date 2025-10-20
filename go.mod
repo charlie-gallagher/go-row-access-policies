@@ -1,4 +1,4 @@
-module example/data-access
+module github.com/charlie-gallagher/go-row-access-policies
 
 go 1.24.2
 
