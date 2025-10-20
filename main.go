@@ -37,37 +37,33 @@ func (pi *PolicyItem) ToJson() string {
 }
 
 func main() {
-	// Read in the policies
 	roles, err := loadRolePolicies("config.json")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Connect to database
 	var db *sql.DB
 	db, err = sql.Open("sqlite", "test-row-access.db")
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Use Ping to actually test that it was successful
+
+	defer db.Close()
+
 	pingErr := db.Ping()
 	if pingErr != nil {
 		log.Fatal(pingErr)
 	}
 
-	// I'm not yet sure if deferring Close is best practice
-	defer db.Close()
-
 	if err = InitDb(db); err != nil {
 		log.Fatal(err)
 	}
 
-	// Load database with policies
 	if err = LoadDbWithPolicies(db, roles); err != nil {
 		log.Fatal(err)
 	}
 
-	// Look up some policies
+	// Let's test it out
 	ex_policy, err := GetPolicy(db, "north_eastern_sales_manager", "Region")
 	if err != nil {
 		log.Fatal(err)
@@ -111,11 +107,12 @@ func InitDb(db *sql.DB) error {
 func LoadDbWithPolicies(db *sql.DB, roles *Config) error {
 	for _, role_policy := range roles.Policies {
 		for _, policy_item := range role_policy.Policy {
-			for i, value := range policy_item.Values {
-				// Skip the __all__ value if it's the first value
-				if i == 0 && value == "__all__" {
-					continue
-				}
+			// If the only policy item is __all__, then we don't need to insert any policies
+			if len(policy_item.Values) == 1 && policy_item.Values[0] == "__all__" {
+				continue
+			}
+			// Otherwise, insert the policies
+			for _, value := range policy_item.Values {
 				if _, err := db.Exec(`
 					insert into policies (role, control_column, value) values (?, ?, ?);
 					`, role_policy.Role, policy_item.Column, value); err != nil {
