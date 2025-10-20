@@ -45,7 +45,7 @@ func main() {
 	}
 
 	var db *sql.DB
-	db, err = sql.Open("sqlite", "test-row-access.db")
+	db, err = sql.Open("sqlite", ":memory:")
 	if err != nil {
 		log.Fatal(err)
 	}
