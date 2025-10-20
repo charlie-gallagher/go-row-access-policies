@@ -36,8 +36,6 @@ func (pi *PolicyItem) ToJson() string {
 	return string(json)
 }
 
-var db *sql.DB
-
 func main() {
 	// Read in the policies
 	roles, err := loadRolePolicies("config.json")
@@ -46,6 +44,7 @@ func main() {
 	}
 
 	// Connect to database
+	var db *sql.DB
 	db, err = sql.Open("sqlite", "test-row-access.db")
 	if err != nil {
 		log.Fatal(err)
@@ -59,27 +58,27 @@ func main() {
 	// I'm not yet sure if deferring Close is best practice
 	defer db.Close()
 
-	if err = InitDb(); err != nil {
+	if err = InitDb(db); err != nil {
 		log.Fatal(err)
 	}
 
 	// Load database with policies
-	if err = LoadDbWithPolicies(roles); err != nil {
+	if err = LoadDbWithPolicies(db, roles); err != nil {
 		log.Fatal(err)
 	}
 
 	// Look up some policies
-	ex_policy, err := GetPolicy("north_eastern_sales_manager", "Region")
+	ex_policy, err := GetPolicy(db, "north_eastern_sales_manager", "Region")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(ex_policy.ToJson())
-	ex_policy, err = GetPolicy("north_eastern_sales_manager", "State")
+	ex_policy, err = GetPolicy(db, "north_eastern_sales_manager", "State")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(ex_policy.ToJson())
-	ex_policy, err = GetPolicy("admin", "State")
+	ex_policy, err = GetPolicy(db, "admin", "State")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,7 +97,7 @@ func loadRolePolicies(fname string) (*Config, error) {
 	return &cfg, nil
 }
 
-func InitDb() error {
+func InitDb(db *sql.DB) error {
 	if _, err := db.Exec(`
 	create table if not exists policies(role varchar, control_column varchar, value varchar);
 	delete from policies;
@@ -109,7 +108,7 @@ func InitDb() error {
 }
 
 // Load the database with policies from the config
-func LoadDbWithPolicies(roles *Config) error {
+func LoadDbWithPolicies(db *sql.DB, roles *Config) error {
 	for _, role_policy := range roles.Policies {
 		for _, policy_item := range role_policy.Policy {
 			for i, value := range policy_item.Values {
@@ -130,7 +129,7 @@ func LoadDbWithPolicies(roles *Config) error {
 }
 
 // Return a PolicyItem for this role and control column
-func GetPolicy(role, column string) (PolicyItem, error) {
+func GetPolicy(db *sql.DB, role, column string) (PolicyItem, error) {
 	var column_values []string
 	rows, err := db.Query("select value from policies where role = ? and control_column = ?", role, column)
 	if err != nil {
