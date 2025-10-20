@@ -4,14 +4,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/santhosh-tekuri/jsonschema/v6"
 	"log"
 	"os"
+
+	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	_ "modernc.org/sqlite"
 )
 
-type Config struct {
+type PolicySet struct {
 	Policies []Policy `json:"policies"`
 }
 
@@ -83,7 +84,7 @@ func main() {
 }
 
 // Load the role policies from the config file
-func LoadRolePolicies(fname string) (*Config, error) {
+func LoadRolePolicies(fname string) (*PolicySet, error) {
 	if err := ValidateConfig(fname); err != nil {
 		return nil, err
 	}
@@ -91,11 +92,11 @@ func LoadRolePolicies(fname string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
+	var policy_set PolicySet
+	if err := json.Unmarshal(data, &policy_set); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
+	return &policy_set, nil
 }
 
 // Validate the config file against the schema
@@ -133,8 +134,8 @@ func InitDb(db *sql.DB) error {
 }
 
 // Load the database with policies from the config
-func LoadDbWithPolicies(db *sql.DB, roles *Config) error {
-	for _, role_policy := range roles.Policies {
+func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
+	for _, role_policy := range policy_set.Policies {
 		for _, policy_item := range role_policy.Policy {
 			// If the only policy item is __all__, then we don't need to insert any policies
 			if len(policy_item.Values) == 1 && policy_item.Values[0] == "__all__" {

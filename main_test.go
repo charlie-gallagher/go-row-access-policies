@@ -17,9 +17,8 @@ func TestPolicyItemConvertsToJson(t *testing.T) {
 
 func TestConfigCanUnmarshal(t *testing.T) {
 	data := []byte("{\"policies\":[{\"role\":\"admin\", \"policy\":[{\"column\":\"Region\", \"values\":[\"one\",\"two\"]}]}]}")
-	var cfg Config
+	var cfg PolicySet
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		t.Fail()
 	}
 }
-
