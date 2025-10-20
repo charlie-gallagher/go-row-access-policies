@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	_ "modernc.org/sqlite"
 )
@@ -37,7 +38,7 @@ func (pi *PolicyItem) ToJson() string {
 }
 
 func main() {
-	roles, err := loadRolePolicies("config.json")
+	roles, err := LoadRolePolicies("config.json")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,7 +82,27 @@ func main() {
 	fmt.Println(ex_policy.ToJson())
 }
 
-func loadRolePolicies(fname string) (*Config, error) {
+func LoadRolePolicies(fname string) (*Config, error) {
+	// Validate the config file against the schema
+	schema_fname := "config_schema.json"
+	c := jsonschema.NewCompiler()
+	schema, err := c.Compile(schema_fname)
+	if err != nil {
+		return nil, err
+	}
+
+    f, err := os.Open(fname)
+	if err != nil {
+		return nil, err
+	}
+	inst, err := jsonschema.UnmarshalJSON(f)
+	if err != nil {
+		return nil, err
+	}
+	f.Close()
+	if err := schema.Validate(inst); err != nil {
+		return nil, err
+	}
 	data, err := os.ReadFile(fname)
 	if err != nil {
 		return nil, err

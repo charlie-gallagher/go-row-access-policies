@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Row Access Configuration Schema",
+  "description": "Schema for row access policies configuration",
+  "type": "object",
+  "properties": {
+    "policies": {
+      "type": "array",
+      "description": "Array of access policies",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "The role name for this policy"
+          },
+          "policy": {
+            "type": "array",
+            "description": "Array of policy items defining column access rules",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "description": "The column name this policy applies to"
+                },
+                "values": {
+                  "type": "array",
+                  "description": "Array of allowed values for this column",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": ["column", "values"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["role", "policy"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["policies"],
+  "additionalProperties": false
+}
