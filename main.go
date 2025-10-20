@@ -39,11 +39,7 @@ func (pi *PolicyItem) ToJson() string {
 }
 
 func main() {
-	roles, err := LoadRolePolicies("config.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	var err error
 	var db *sql.DB
 	db, err = sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -61,7 +57,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err = LoadDbWithPolicies(db, roles); err != nil {
+	// Load data from multiple config files
+	err = LoadDbFromFile(db, "config.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = LoadDbFromFile(db, "config_2.json")
+	if err != nil {
 		log.Fatal(err)
 	}
 
@@ -81,6 +83,17 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println(ex_policy.ToJson())
+	ex_policy, err = GetPolicy(db, "sales_manager", "Region")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(ex_policy.ToJson())
+	ex_policy, err = GetPolicy(db, "northwestern_sales_manager", "Region")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(ex_policy.ToJson())
+
 }
 
 // Load the role policies from the config file
@@ -152,6 +165,17 @@ func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
 		}
 	}
 
+	return nil
+}
+
+func LoadDbFromFile(db *sql.DB, fname string) error {
+	policy_set, err := LoadRolePolicies(fname)
+	if err != nil {
+		return err
+	}
+	if err = LoadDbWithPolicies(db, policy_set); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -1,0 +1,25 @@
+{
+    "policies": [
+        {
+            "role": "sales_manager",
+            "policy": [
+                {"column": "Region", "values": ["__all__"]},
+                {"column": "State", "values": ["__all__"]}
+            ]
+        },
+        {
+            "role": "western_region_sales_manager",
+            "policy": [
+                {"column": "Region", "values": ["Western"]},
+                {"column": "State", "values": ["__all__"]}
+            ]
+        },
+        {
+            "role": "northwestern_sales_manager",
+            "policy": [
+                {"column": "Region", "values": ["Northern", "Western"]},
+                {"column": "State", "values": ["Washington", "Oregon", "California", "Idaho", "Nevada"]}
+            ]
+        }
+    ]
+}
