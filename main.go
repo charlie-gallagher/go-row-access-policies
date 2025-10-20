@@ -26,11 +26,20 @@ type PolicyItem struct {
 	Values []string `json:"values"`
 }
 
+// Return a JSON string representation of the policy
+func (p *Policy) ToJson() string {
+	json, err := json.Marshal(p)
+	if err != nil {
+		return "(error marshalling policy)"
+	}
+	return string(json)
+}
+
 // Return a JSON string representation of the policy item
-//
-// At the moment, we only ever return individual policy items, so this is the
-// only method we need.
 func (pi *PolicyItem) ToJson() string {
+	if len(pi.Values) == 0 {
+		return "null"
+	}
 	json, err := json.Marshal(pi)
 	if err != nil {
 		return "(error marshalling policy item)"
@@ -68,32 +77,42 @@ func main() {
 	}
 
 	// Let's test it out
-	ex_policy, err := GetPolicy(db, "north_eastern_sales_manager", "Region")
+	ex_policy_item, err := GetPolicyItem(db, "north_eastern_sales_manager", "Region")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(ex_policy.ToJson())
-	ex_policy, err = GetPolicy(db, "north_eastern_sales_manager", "State")
+	fmt.Println(ex_policy_item.ToJson())
+	ex_policy_item, err = GetPolicyItem(db, "north_eastern_sales_manager", "State")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(ex_policy.ToJson())
-	ex_policy, err = GetPolicy(db, "admin", "State")
+	fmt.Println(ex_policy_item.ToJson())
+	ex_policy_item, err = GetPolicyItem(db, "admin", "State")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(ex_policy.ToJson())
-	ex_policy, err = GetPolicy(db, "sales_manager", "Region")
+	fmt.Println(ex_policy_item.ToJson())
+	ex_policy_item, err = GetPolicyItem(db, "sales_manager", "Region")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(ex_policy.ToJson())
-	ex_policy, err = GetPolicy(db, "northwestern_sales_manager", "Region")
+	fmt.Println(ex_policy_item.ToJson())
+	ex_policy_item, err = GetPolicyItem(db, "northwestern_sales_manager", "Region")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(ex_policy.ToJson())
+	fmt.Println(ex_policy_item.ToJson())
 
+	ex_policy, err := GetPolicy(db, "admin")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(ex_policy.ToJson())
+	ex_policy, err = GetPolicy(db, "northwestern_sales_manager")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(ex_policy.ToJson())
 }
 
 // Load the role policies from the config file
@@ -179,8 +198,38 @@ func LoadDbFromFile(db *sql.DB, fname string) error {
 	return nil
 }
 
+// For a given role, return all policy items
+//
+// This fetches the various control columns, then calls GetPolicyItem in a loop
+// until that list is exhausted. This is not an efficient way to carry out the
+// task, but it's easier to implement.
+func GetPolicy(db *sql.DB, role string) (Policy, error) {
+	rows, err := db.Query("select distinct control_column from policies where role = ?", role)
+	if err != nil {
+		return Policy{}, err
+	}
+	defer rows.Close()
+	var control_columns []string
+	for rows.Next() {
+		var column string
+		if err = rows.Scan(&column); err != nil {
+			return Policy{}, err
+		}
+		control_columns = append(control_columns, column)
+	}
+	policy := Policy{Role: role}
+	for _, cc := range control_columns {
+		pi, err := GetPolicyItem(db, role, cc)
+		if err != nil {
+			return Policy{}, err
+		}
+		policy.Policy = append(policy.Policy, pi)
+	}
+	return policy, nil
+}
+
 // Return a PolicyItem for this role and control column
-func GetPolicy(db *sql.DB, role, column string) (PolicyItem, error) {
+func GetPolicyItem(db *sql.DB, role, column string) (PolicyItem, error) {
 	var column_values []string
 	rows, err := db.Query("select value from policies where role = ? and control_column = ?", role, column)
 	if err != nil {
@@ -193,6 +242,10 @@ func GetPolicy(db *sql.DB, role, column string) (PolicyItem, error) {
 			return PolicyItem{}, err
 		}
 		column_values = append(column_values, v)
+	}
+	// If there are no values, return an empty policy item
+	if len(column_values) == 0 {
+		return PolicyItem{}, nil
 	}
 	return PolicyItem{Column: column, Values: column_values}, nil
 }
