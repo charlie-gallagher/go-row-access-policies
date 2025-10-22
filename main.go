@@ -12,6 +12,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+const json_schema_fname = "config_schema.json"
+
 type PolicySet struct {
 	Policies []Policy `json:"policies"`
 }
@@ -28,6 +30,9 @@ type PolicyItem struct {
 
 // Return a JSON string representation of the policy
 func (p *Policy) ToJson() string {
+	if len(p.Policy) == 0 {
+		return "null"
+	}
 	json, err := json.Marshal(p)
 	if err != nil {
 		return "(error marshalling policy)"
@@ -133,7 +138,7 @@ func LoadRolePolicies(fname string) (*PolicySet, error) {
 
 // Validate the config file against the schema
 func ValidateConfig(fname string) error {
-	schema_fname := "config_schema.json"
+	schema_fname := json_schema_fname
 	c := jsonschema.NewCompiler()
 	schema, err := c.Compile(schema_fname)
 	if err != nil {

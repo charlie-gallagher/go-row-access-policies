@@ -1,0 +1,11 @@
+{
+    "policies": [
+        {
+            "role": "eastern_region_sales_manager",
+            "policy": [
+                {"column": "Region", "values": ["Eastern"]},
+                {"column": "State", "values": ["Pennsylvania", "New York", "Massachusetts"]}
+            ]
+        }
+    ]
+}

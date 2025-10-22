@@ -1,0 +1,18 @@
+{
+    "policies": [
+        {
+            "role": "admin",
+            "policy": [
+                {"column": "Region", "values": ["__all__"]},
+                {"column": "State", "values": ["__all__"]}
+            ]
+        },
+        {
+            "role": "eastern_region_sales_manager",
+            "policy": [
+                {"column": "Region", "values": ["Eastern"]},
+                {"column": "State", "values": ["__all__"]}
+            ]
+        }
+    ]
+}
