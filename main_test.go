@@ -110,13 +110,9 @@ func TestDbInitWorks(t *testing.T) {
 	})
 
 	t.Run("policies table is created", func(t *testing.T) {
-		db, err := getDbHandle()
+		db, err := getInitializedDbHandle()
 		if err != nil {
-			log.Printf("Error getting db handle: %v\n", err)
-			t.Fail()
-		}
-		if err = InitDb(db); err != nil {
-			log.Printf("Error initializing db: %v\n", err)
+			log.Printf("Error getting initialized db handle: %v\n", err)
 			t.Fail()
 		}
 		var tableName string
@@ -130,6 +126,17 @@ func TestDbInitWorks(t *testing.T) {
 		}
 		db.Close()
 	})
+}
+
+func getInitializedDbHandle() (*sql.DB, error) {
+	db, err := getDbHandle()
+	if err != nil {
+		return nil, err
+	}
+	if err = InitDb(db); err != nil {
+		return nil, err
+	}
+	return db, nil
 }
 
 func getDbHandle() (*sql.DB, error) {
@@ -146,6 +153,7 @@ func getDbHandle() (*sql.DB, error) {
 
 	return db, nil
 }
+
 
 func fetchOneRow(db *sql.DB, query string, dest ...any) error {
 	rows, err := db.Query(query)
