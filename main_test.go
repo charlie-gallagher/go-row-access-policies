@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "encoding/json"
 	"testing"
 )
 
@@ -51,34 +50,43 @@ func TestPolicyConvertsToJson(t *testing.T) {
 	})
 }
 
-func TestValidateConfig(t *testing.T) {
+func TestValidateConfigWorks(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
-		err := ValidateConfig("testdata/valid_simple_policy.json")
+		err := ValidateConfig([]byte(
+			"{\"policies\":[{\"role\":\"admin\", \"policy\":[{\"column\":\"Region\", \"values\":[\"one\",\"two\"]}]}]}",
+		))
+		if err != nil {
+			t.Fail()
+		}
+	})
+	t.Run("Valid config file", func(t *testing.T) {
+		err := ValidateConfigFile("testdata/valid_policy_set.json")
+		if err != nil {
+			t.Fail()
+		}
+	})
+
+	t.Run("Empty set of policies is ok", func(t *testing.T) {
+		err := ValidateConfig([]byte("{\"policies\":[]}"))
 		if err != nil {
 			t.Fail()
 		}
 	})
 }
 
-// func TestConfigCanUnmarshal(t *testing.T) {
-// 	data := []byte("{\"policies\":[{\"role\":\"admin\", \"policy\":[{\"column\":\"Region\", \"values\":[\"one\",\"two\"]}]}]}")
-// 	ps, err := LoadRolePolicies(data)
-// 	if err != nil {
-// 		t.Fail()
-// 	}
-// 	if len(ps.Policies) != 1 {
-// 		t.Fail()
-// 	}
-// 	if ps.Policies[0].Role != "admin" {
-// 		t.Fail()
-// 	}
-// 	if len(ps.Policies[0].Policy) != 2 {
-// 		t.Fail()
-// 	}
-// 	if ps.Policies[0].Policy[0].Column != "Region" {
-// 		t.Fail()
-// 	}
-// 	if len(ps.Policies[0].Policy[0].Values) != 2 {
-// 		t.Fail()
-// 	}
-// }
+func TestValidateConfigFails(t *testing.T) {
+	t.Run("Invalid config file", func(t *testing.T) {
+		err := ValidateConfigFile("testdata/invalid_policy_set.json")
+		if err == nil {
+			t.Fail()
+		}
+	})
+	t.Run("Invalid config", func(t *testing.T) {
+		err := ValidateConfig([]byte(
+			"{\"policies\":[{\"oops\":\"admin\", \"policy_items\":[{\"column\":\"Region\", \"values\":[\"one\",\"two\"]}]}]}",
+		))
+		if err == nil {
+			t.Fail()
+		}
+	})
+}

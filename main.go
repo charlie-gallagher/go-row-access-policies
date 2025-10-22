@@ -122,7 +122,7 @@ func main() {
 
 // Load the role policies from the config file
 func LoadRolePolicies(fname string) (*PolicySet, error) {
-	if err := ValidateConfig(fname); err != nil {
+	if err := ValidateConfigFile(fname); err != nil {
 		return nil, err
 	}
 	data, err := os.ReadFile(fname)
@@ -137,23 +137,27 @@ func LoadRolePolicies(fname string) (*PolicySet, error) {
 }
 
 // Validate the config file against the schema
-func ValidateConfig(fname string) error {
-	schema_fname := json_schema_fname
-	c := jsonschema.NewCompiler()
-	schema, err := c.Compile(schema_fname)
+func ValidateConfigFile(fname string) error {
+	data, err := os.ReadFile(fname)
 	if err != nil {
 		return err
 	}
 
-	f, err := os.Open(fname)
+	return ValidateConfig(data)
+}
+
+func ValidateConfig(data []byte) error {
+	var inst any
+	err := json.Unmarshal(data, &inst)
 	if err != nil {
 		return err
 	}
-	inst, err := jsonschema.UnmarshalJSON(f)
+	c := jsonschema.NewCompiler()
+	schema, err := c.Compile(json_schema_fname)
 	if err != nil {
 		return err
 	}
-	f.Close()
+
 	if err := schema.Validate(inst); err != nil {
 		return err
 	}
