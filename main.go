@@ -62,9 +62,8 @@ func main() {
 
 	defer db.Close()
 
-	pingErr := db.Ping()
-	if pingErr != nil {
-		log.Fatal(pingErr)
+	if err = db.Ping(); err != nil {
+		log.Fatal(err)
 	}
 
 	if err = InitDb(db); err != nil {
