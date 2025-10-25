@@ -51,14 +51,6 @@ func TestPolicyConvertsToJson(t *testing.T) {
 }
 
 func TestValidateConfigWorks(t *testing.T) {
-	t.Run("valid config", func(t *testing.T) {
-		err := ValidateConfig([]byte(
-			`{"policies":[{"role":"admin", "policy":[{"column":"Region", "values":["one","two"]}]}]}`,
-		))
-		if err != nil {
-			t.Fail()
-		}
-	})
 	t.Run("Valid config file", func(t *testing.T) {
 		err := ValidateConfigFile("testdata/valid_policy_set.json")
 		if err != nil {
@@ -66,12 +58,21 @@ func TestValidateConfigWorks(t *testing.T) {
 		}
 	})
 
-	t.Run("Empty set of policies is ok", func(t *testing.T) {
-		err := ValidateConfig([]byte(`{"policies":[]}`))
-		if err != nil {
-			t.Fail()
-		}
-	})
+	valid_policy_set_tests := []string{
+		`{"policies":[]}`,
+		`{"policies":[{"role":"admin", "policy":[]}]}`,
+		`{"policies":[{"role":"admin", "policy":[{"column":"Region", "values":[]}]}]}`,
+		`{"policies":[{"role":"admin", "policy":[{"column":"Region", "values":["one","two"]}]}]}`,
+	}
+	for _, test := range valid_policy_set_tests {
+		t.Run(fmt.Sprintf("valid policy set: %s", test), func(t *testing.T) {
+			err := ValidateConfig([]byte(test))
+			if err != nil {
+				log.Printf("Error validating policy set: %v\n", err)
+				t.Fail()
+			}
+		})
+	}
 }
 
 func TestValidateConfigFails(t *testing.T) {
@@ -81,14 +82,23 @@ func TestValidateConfigFails(t *testing.T) {
 			t.Fail()
 		}
 	})
-	t.Run("Invalid config", func(t *testing.T) {
-		err := ValidateConfig([]byte(
-			`{"policies":[{"oops":"admin", "policy_items":[{"column":"Region", "values":["one","two"]}]}]}`,
-		))
-		if err == nil {
-			t.Fail()
-		}
-	})
+
+	invalid_policy_set_tests := []string{
+		// Mising role key
+		`{"policies":[{"oops":"admin", "policy":[{"column":"Region", "values":["one","two"]}]}]}`,
+		// Mising policy key
+		`{"policies":[{"role":"admin", "policy_items":[{"column":"Region", "values":["one","two"]}]}]}`,
+		// Just a role (not a policy set)
+		`{"role":"admin", "policy":[{"column":"Region", "values":["Eastern"]}]}`,
+	}
+	for _, test := range invalid_policy_set_tests {
+		t.Run(fmt.Sprintf("invalid policy set: %s", test), func(t *testing.T) {
+			err := ValidateConfig([]byte(test))
+			if err == nil {
+				t.Fail()
+			}
+		})
+	}
 }
 
 func TestDbInitWorks(t *testing.T) {
