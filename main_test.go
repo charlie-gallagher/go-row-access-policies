@@ -30,22 +30,24 @@ func TestPolicyItemConvertsToJson(t *testing.T) {
 }
 
 func TestPolicyConvertsToJson(t *testing.T) {
-	t.Run("empty policy", func(t *testing.T) {
-		p := Policy{}
-		got := p.ToJson()
-		want := "null"
-		if got != want {
-			t.Fail()
-		}
-	})
-	t.Run("non-empty policy", func(t *testing.T) {
-		p := Policy{Role: "admin", Policy: []PolicyItem{{Column: "Region", Values: []string{"one", "two", "three"}}}}
-		got := p.ToJson()
-		want := `{"role":"admin","policy":[{"column":"Region","values":["one","two","three"]}]}`
-		if got != want {
-			t.Fail()
-		}
-	})
+	tests := []struct {
+		input  Policy
+		output string
+	}{
+		{Policy{}, "null"},
+		{
+			Policy{Role: "admin", Policy: []PolicyItem{{Column: "Region", Values: []string{"one", "two", "three"}}}},
+			`{"role":"admin","policy":[{"column":"Region","values":["one","two","three"]}]}`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("input: %v, output: %s", test.input, test.output), func(t *testing.T) {
+			got := test.input.ToJson()
+			if got != test.output {
+				t.Fail()
+			}
+		})
+	}
 }
 
 func TestValidateConfigWorks(t *testing.T) {
