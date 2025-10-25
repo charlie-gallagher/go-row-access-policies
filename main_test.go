@@ -19,6 +19,7 @@ func TestPolicyItemConvertsToJson(t *testing.T) {
 		{PolicyItem{Column: "charlie", Values: []string{}}, "null"},
 		{PolicyItem{Column: "charlie", Values: []string{"one", "two", "three"}}, `{"column":"charlie","values":["one","two","three"]}`},
 	}
+
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("input: %v, output: %s", test.input, test.output), func(t *testing.T) {
 			got := test.input.ToJson()
@@ -40,6 +41,7 @@ func TestPolicyConvertsToJson(t *testing.T) {
 			`{"role":"admin","policy":[{"column":"Region","values":["one","two","three"]}]}`,
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("input: %v, output: %s", test.input, test.output), func(t *testing.T) {
 			got := test.input.ToJson()
@@ -133,6 +135,61 @@ func TestDbInitWorks(t *testing.T) {
 		}
 		db.Close()
 	})
+}
+
+func TestDbLoadWorks(t *testing.T) {
+
+	policies := []struct {
+		input  Policy
+		output string
+	}{
+		{
+			Policy{Role: "admin", Policy: []PolicyItem{{Column: "Region", Values: []string{"one", "two", "three"}}}},
+			`{"role":"admin","policy":[{"column":"Region","values":["one","two","three"]}]}`,
+		},
+		{
+			Policy{Role: "east_mgr", Policy: []PolicyItem{{Column: "State", Values: []string{"__all__"}}}},
+			`null`,
+		},
+		{
+			Policy{Role: "north_mgr", Policy: []PolicyItem{
+				{Column: "Region", Values: []string{"Northern", "Eastern"}},
+				{Column: "State", Values: []string{"WA", "OR", "CA", "ID", "NV"}},
+			}},
+			`{"role":"north_mgr","policy":[{"column":"Region","values":["Northern","Eastern"]},{"column":"State","values":["WA","OR","CA","ID","NV"]}]}`,
+		},
+		{
+			Policy{Role: "north_mgr", Policy: []PolicyItem{
+				{Column: "Region", Values: []string{"Northern", "Eastern"}},
+				{Column: "State", Values: []string{"__all__"}},
+			}},
+			`{"role":"north_mgr","policy":[{"column":"Region","values":["Northern","Eastern"]}]}`,
+		},
+	}
+
+	for _, test := range policies {
+		t.Run(fmt.Sprintf("db load: %s", test.output), func(t *testing.T) {
+			db, err := getInitializedDbHandle()
+			if err != nil {
+				log.Printf("Error getting initialized db handle: %v\n", err)
+				t.Fail()
+			}
+			if err = LoadDbWithPolicies(db, &PolicySet{Policies: []Policy{test.input}}); err != nil {
+				log.Printf("Error loading db with policies: %v\n", err)
+				t.Fail()
+			}
+			fetch, err := GetPolicy(db, test.input.Role)
+			if err != nil {
+				log.Printf("Error getting policy: %v\n", err)
+				t.Fail()
+			}
+			if fetch.ToJson() != test.output {
+				log.Printf("Policy mismatch: got %s, want %s\n", fetch.ToJson(), test.output)
+				t.Fail()
+			}
+			db.Close()
+		})
+	}
 }
 
 func getInitializedDbHandle() (*sql.DB, error) {
