@@ -315,6 +315,14 @@ That should be it; very simple. In a real system, I would need to worry about
 who can create and modify policies, but here I'm just gonna start with anyone
 can read, write, and modify any policy.
 
+## Current state: 2025-10-25
+So far, I have a working serde system (read into database, get back from database and back into policy JSON). But there's no user interface. So, I'd like to set up two different UIs, a localhost server and a CLI. The server is better for loading data, although I guess you could pass in a folder containing policies to the CLI.
+
+I guess for a CLI you could set up a persistent database, load it with some files through repeated CLI calls, and then query it. At least that way you don't have to `POST` data, you can just tell the CLI handler about the file you want to load.
+
+Ok, I'm going with a CLI for now. Later, I can put this into a server if I want to experiment with that.
+
+
 
 
 ---
