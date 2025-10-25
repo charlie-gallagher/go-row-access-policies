@@ -4,6 +4,7 @@ go 1.24.2
 
 require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
+	github.com/spf13/pflag v1.0.10
 	modernc.org/sqlite v1.39.1
 )
 
