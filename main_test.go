@@ -8,30 +8,25 @@ import (
 )
 
 func TestPolicyItemConvertsToJson(t *testing.T) {
-	t.Run("empty policy item", func(t *testing.T) {
-		pi := PolicyItem{}
-		got := pi.ToJson()
-		want := "null"
-		if got != want {
-			t.Fail()
-		}
-	})
-	t.Run("policy item with no values", func(t *testing.T) {
-		pi := PolicyItem{Column: "charlie", Values: []string{}}
-		got := pi.ToJson()
-		want := "null"
-		if got != want {
-			t.Fail()
-		}
-	})
-	t.Run("non-empty policy item", func(t *testing.T) {
-		pi := PolicyItem{Column: "charlie", Values: []string{"one", "two", "three"}}
-		got := pi.ToJson()
-		want := `{"column":"charlie","values":["one","two","three"]}`
-		if got != want {
-			t.Fail()
-		}
-	})
+
+	tests := []struct {
+		input  PolicyItem
+		output string
+	}{
+		// NOTE: it might not be best practice to serialize different inputs to
+		// the same output, but it's convenient for the user
+		{PolicyItem{}, "null"},
+		{PolicyItem{Column: "charlie", Values: []string{}}, "null"},
+		{PolicyItem{Column: "charlie", Values: []string{"one", "two", "three"}}, `{"column":"charlie","values":["one","two","three"]}`},
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("input: %v, output: %s", test.input, test.output), func(t *testing.T) {
+			got := test.input.ToJson()
+			if got != test.output {
+				t.Fail()
+			}
+		})
+	}
 }
 
 func TestPolicyConvertsToJson(t *testing.T) {
