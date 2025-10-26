@@ -2,25 +2,24 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"testing"
 )
 
 func TestPolicyItemConvertsToJson(t *testing.T) {
 
-	tests := []struct {
+	tests := map[string]struct {
 		input  PolicyItem
 		output string
 	}{
 		// NOTE: it might not be best practice to serialize different inputs to
 		// the same output, but it's convenient for the user
-		{PolicyItem{}, "null"},
-		{PolicyItem{Column: "charlie", Values: []string{}}, "null"},
-		{PolicyItem{Column: "charlie", Values: []string{"one", "two", "three"}}, `{"column":"charlie","values":["one","two","three"]}`},
+		"Empty policy item":                 {PolicyItem{}, "null"},
+		"Column with no values":             {PolicyItem{Column: "charlie", Values: []string{}}, "null"},
+		"Column with values (typical case)": {PolicyItem{Column: "charlie", Values: []string{"one", "two", "three"}}, `{"column":"charlie","values":["one","two","three"]}`},
 	}
 
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("input: %v, output: %s", test.input, test.output), func(t *testing.T) {
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
 			got := test.input.ToJson()
 			if got != test.output {
 				t.Errorf("Policy item mismatch: got %s, want %s\n", got, test.output)
@@ -30,19 +29,21 @@ func TestPolicyItemConvertsToJson(t *testing.T) {
 }
 
 func TestPolicyConvertsToJson(t *testing.T) {
-	tests := []struct {
+	// NOTE: __all__ values do not get treated specially in the ToJson() method,
+	// so they are not tested here.
+	tests := map[string]struct {
 		input  Policy
 		output string
 	}{
-		{Policy{}, "null"},
-		{
+		"Empty policy": {Policy{}, "null"},
+		"Policy with one item (typical case)": {
 			Policy{Role: "admin", Policy: []PolicyItem{{Column: "Region", Values: []string{"one", "two", "three"}}}},
 			`{"role":"admin","policy":[{"column":"Region","values":["one","two","three"]}]}`,
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("input: %v, output: %s", test.input, test.output), func(t *testing.T) {
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
 			got := test.input.ToJson()
 			if got != test.output {
 				t.Errorf("Policy mismatch: got %s, want %s\n", got, test.output)
@@ -59,14 +60,14 @@ func TestValidateConfigWorks(t *testing.T) {
 		}
 	})
 
-	valid_policy_set_tests := []string{
-		`{"policies":[]}`,
-		`{"policies":[{"role":"admin", "policy":[]}]}`,
-		`{"policies":[{"role":"admin", "policy":[{"column":"Region", "values":[]}]}]}`,
-		`{"policies":[{"role":"admin", "policy":[{"column":"Region", "values":["one","two"]}]}]}`,
+	valid_policy_set_tests := map[string]string{
+		"Empty policy set":                               `{"policies":[]}`,
+		"Policy set with one empty policy":               `{"policies":[{"role":"admin", "policy":[]}]}`,
+		"Policy set with one policy item with no values": `{"policies":[{"role":"admin", "policy":[{"column":"Region", "values":[]}]}]}`,
+		"Policy set with one policy item with values":    `{"policies":[{"role":"admin", "policy":[{"column":"Region", "values":["one","two"]}]}]}`,
 	}
-	for _, test := range valid_policy_set_tests {
-		t.Run(fmt.Sprintf("valid policy set: %s", test), func(t *testing.T) {
+	for name, test := range valid_policy_set_tests {
+		t.Run(name, func(t *testing.T) {
 			err := ValidateConfig([]byte(test))
 			if err != nil {
 				t.Errorf("Error validating policy set: %v\n", err)
@@ -83,16 +84,13 @@ func TestValidateConfigFails(t *testing.T) {
 		}
 	})
 
-	invalid_policy_set_tests := []string{
-		// Mising role key
-		`{"policies":[{"oops":"admin", "policy":[{"column":"Region", "values":["one","two"]}]}]}`,
-		// Mising policy key
-		`{"policies":[{"role":"admin", "policy_items":[{"column":"Region", "values":["one","two"]}]}]}`,
-		// Just a role (not a policy set)
-		`{"role":"admin", "policy":[{"column":"Region", "values":["Eastern"]}]}`,
+	invalid_policy_set_tests := map[string]string{
+		"Missing role key":               `{"policies":[{"oops":"admin", "policy":[{"column":"Region", "values":["one","two"]}]}]}`,
+		"Missing policy key":             `{"policies":[{"role":"admin", "policy_items":[{"column":"Region", "values":["one","two"]}]}]}`,
+		"Just a role (not a policy set)": `{"role":"admin", "policy":[{"column":"Region", "values":["Eastern"]}]}`,
 	}
-	for _, test := range invalid_policy_set_tests {
-		t.Run(fmt.Sprintf("invalid policy set: %s", test), func(t *testing.T) {
+	for name, test := range invalid_policy_set_tests {
+		t.Run(name, func(t *testing.T) {
 			err := ValidateConfig([]byte(test))
 			if err == nil {
 				t.Errorf("Expected error validating config, but got none")
@@ -125,27 +123,28 @@ func TestDbInitWorks(t *testing.T) {
 }
 
 func TestDbLoadWorks(t *testing.T) {
+	// TODO: This test set needs to be broken up. It tests DbLoad, GetPolicy, and ToJson.
 
-	policies := []struct {
+	policies := map[string]struct {
 		input  Policy
 		output string
 	}{
-		{
+		"Policy with one item": {
 			Policy{Role: "admin", Policy: []PolicyItem{{Column: "Region", Values: []string{"one", "two", "three"}}}},
 			`{"role":"admin","policy":[{"column":"Region","values":["one","two","three"]}]}`,
 		},
-		{
+		"Policy with one __all__ item": {
 			Policy{Role: "east_mgr", Policy: []PolicyItem{{Column: "State", Values: []string{"__all__"}}}},
 			`null`,
 		},
-		{
+		"Policy with two items": {
 			Policy{Role: "north_mgr", Policy: []PolicyItem{
 				{Column: "Region", Values: []string{"Northern", "Eastern"}},
 				{Column: "State", Values: []string{"WA", "OR", "CA", "ID", "NV"}},
 			}},
 			`{"role":"north_mgr","policy":[{"column":"Region","values":["Northern","Eastern"]},{"column":"State","values":["WA","OR","CA","ID","NV"]}]}`,
 		},
-		{
+		"Policy with two items, one __all__ item": {
 			Policy{Role: "north_mgr", Policy: []PolicyItem{
 				{Column: "Region", Values: []string{"Northern", "Eastern"}},
 				{Column: "State", Values: []string{"__all__"}},
@@ -154,8 +153,8 @@ func TestDbLoadWorks(t *testing.T) {
 		},
 	}
 
-	for _, test := range policies {
-		t.Run(fmt.Sprintf("db load: %s", test.output), func(t *testing.T) {
+	for name, test := range policies {
+		t.Run(name, func(t *testing.T) {
 			db := getInitializedDbHandle(t)
 			if err := LoadDbWithPolicies(db, &PolicySet{Policies: []Policy{test.input}}); err != nil {
 				t.Fatalf("Error loading db with policies: %v\n", err)
@@ -165,7 +164,7 @@ func TestDbLoadWorks(t *testing.T) {
 				t.Fatalf("Error getting policy: %v\n", err)
 			}
 			if fetch.ToJson() != test.output {
-				t.Fatalf("Policy mismatch: got %s, want %s\n", fetch.ToJson(), test.output)
+				t.Errorf("Policy mismatch: got %s, want %s\n", fetch.ToJson(), test.output)
 			}
 			db.Close()
 		})
@@ -174,6 +173,7 @@ func TestDbLoadWorks(t *testing.T) {
 
 func TestGetPolicyWorks(t *testing.T) {
 	db := getInitializedDbHandle(t)
+	defer db.Close()
 	policy_set, err := LoadRolePolicies("testdata/valid_policy_set.json")
 	if err != nil {
 		t.Fatalf("Error loading role policies: %v\n", err)
@@ -186,14 +186,14 @@ func TestGetPolicyWorks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error getting policy: %v\n", err)
 	}
-	if policy.ToJson() != `null` {
-		t.Fatalf("Policy mismatch: got %s, want %s\n", policy.ToJson(), `null`)
+	if policy.ToJson() != "null" {
+		t.Errorf("Policy mismatch: got %s, want %s\n", policy.ToJson(), "null")
 	}
-	db.Close()
 }
 
 func TestGetPolicyFailsIfRoleDoesNotExist(t *testing.T) {
 	db := getInitializedDbHandle(t)
+	defer db.Close()
 	policy_set, err := LoadRolePolicies("testdata/valid_policy_set.json")
 	if err != nil {
 		t.Fatalf("Error loading role policies: %v\n", err)
@@ -206,13 +206,13 @@ func TestGetPolicyFailsIfRoleDoesNotExist(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error getting policy for role that does not exist, but got none")
 	}
-	db.Close()
 }
 
 func getInitializedDbHandle(t *testing.T) *sql.DB {
 	t.Helper()
 	db := getDbHandle(t)
 	if err := InitDb(db); err != nil {
+		db.Close()
 		t.Fatalf("Error initializing db: %v\n", err)
 	}
 	return db
