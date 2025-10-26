@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"testing"
 )
 
@@ -70,8 +69,7 @@ func TestValidateConfigWorks(t *testing.T) {
 		t.Run(fmt.Sprintf("valid policy set: %s", test), func(t *testing.T) {
 			err := ValidateConfig([]byte(test))
 			if err != nil {
-				log.Printf("Error validating policy set: %v\n", err)
-				t.Fail()
+				t.Errorf("Error validating policy set: %v\n", err)
 			}
 		})
 	}
