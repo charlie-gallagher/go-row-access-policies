@@ -19,7 +19,6 @@ SYNOPSIS
        rowctrl [OPTIONS] --db FILE --load CONFIG
        rowctrl [OPTIONS] --db FILE --get ROLE
        rowctrl [-h|--help]
-       rowctrl [-v|--verbose]
 
 DESCRIPTION
        rowctrl is a command-line tool for managing row-level access control
@@ -44,9 +43,6 @@ COMMANDS
 OPTIONS
        -h, --help
               Display this help message and exit.
-
-       -v, --verbose
-              Enable verbose output mode for detailed operation information.
 
        --db FILE
               Specify the SQLite database file to use for policy storage and
@@ -87,9 +83,6 @@ EXAMPLES
        Retrieve policy for a specific role:
               rowctrl --db policies.db --get admin
 
-       Enable verbose output:
-              rowctrl --verbose --db policies.db --get eastern_region_sales_manager
-
        Save output to a file:
               rowctrl --db policies.db --get pa_sales_manager --output policy.json
 
@@ -111,23 +104,17 @@ COPYRIGHT
        This is free software; see the source for copying conditions.`
 
 func main() {
-	var verbose bool
 	var help bool
 	var db_file string
 	var config_file string
 	var role string
 
-	pflag.BoolVarP(&verbose, "verbose", "v", false, "enable verbose mode")
 	pflag.BoolVarP(&help, "help", "h", false, "display help message")
 	pflag.StringVarP(&db_file, "db", "d", "", "database file")
 	pflag.StringVarP(&config_file, "load", "l", "", "config file to load into database")
 	pflag.StringVarP(&role, "get", "g", "", "role to get policy for from database")
 
 	pflag.Parse()
-
-	if verbose {
-		fmt.Println("Verbose mode enabled (but does nothing yet)")
-	}
 
 	if help {
 		fmt.Println(help_text)
