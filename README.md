@@ -322,7 +322,13 @@ I guess for a CLI you could set up a persistent database, load it with some file
 
 Ok, I'm going with a CLI for now. Later, I can put this into a server if I want to experiment with that.
 
+## To-dos
+There's not much to this, but there are still things I'd like to improve.
 
+- [ ] Improve CLI argument handling
+- [ ] Install `config_schema.json` into a standard location (or store natively)
+- [ ] CLI tests in bash
+- [ ] 
 
 
 ---
