@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -98,7 +99,8 @@ func InitDb(db *sql.DB) error {
 	if _, err := db.Exec(`
 	create table if not exists policies(role varchar, control_column varchar, value varchar);
 	delete from policies;
-		`); err != nil {
+	create table if not exists roles(role varchar unique);
+	delete from roles;`); err != nil {
 		return err
 	}
 	return nil
@@ -107,6 +109,10 @@ func InitDb(db *sql.DB) error {
 // Load the database with policies from the config
 func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
 	for _, role_policy := range policy_set.Policies {
+		// First, add role to `roles` table, if not already there
+		if err := tryAddRoleToRolesTable(db, role_policy.Role); err != nil {
+			return err
+		}
 		for _, policy_item := range role_policy.Policy {
 			// If the only policy item is __all__, then we don't need to insert any policies
 			if len(policy_item.Values) == 1 && policy_item.Values[0] == "__all__" {
@@ -126,6 +132,24 @@ func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
 	return nil
 }
 
+func tryAddRoleToRolesTable(db *sql.DB, role string) error {
+	// Check if role already exists
+	rows, err := db.Query("select role from roles where role = ?", role)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if rows.Next() {
+		return nil
+	}
+	// Add role to table
+	_, err = db.Exec("insert into roles (role) values (?)", role)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func LoadDbFromFile(db *sql.DB, fname string) error {
 	policy_set, err := LoadRolePolicies(fname)
 	if err != nil {
@@ -142,20 +166,35 @@ func LoadDbFromFile(db *sql.DB, fname string) error {
 // This fetches the various control columns, then calls GetPolicyItem in a loop
 // until that list is exhausted. This is not an efficient way to carry out the
 // task, but it's easier to implement.
+//
+// Returns an error if the role does not exist.
 func GetPolicy(db *sql.DB, role string) (Policy, error) {
-	rows, err := db.Query("select distinct control_column from policies where role = ?", role)
+	// First, confirm the role exists
+	rows, err := db.Query("select role from roles where role = ?", role)
 	if err != nil {
 		return Policy{}, err
 	}
-	defer rows.Close()
+	if !rows.Next() {
+		rows.Close()
+		return Policy{}, fmt.Errorf("role `%s` does not exist", role)
+	}
+	rows.Close()
+
+	// Now return the role data
+	rows, err = db.Query("select distinct control_column from policies where role = ?", role)
+	if err != nil {
+		return Policy{}, err
+	}
 	var control_columns []string
 	for rows.Next() {
 		var column string
 		if err = rows.Scan(&column); err != nil {
+			rows.Close()
 			return Policy{}, err
 		}
 		control_columns = append(control_columns, column)
 	}
+	rows.Close()
 	policy := Policy{Role: role}
 	for _, cc := range control_columns {
 		pi, err := GetPolicyItem(db, role, cc)

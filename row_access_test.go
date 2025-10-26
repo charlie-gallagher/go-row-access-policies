@@ -125,12 +125,22 @@ func TestDbInitWorks(t *testing.T) {
 			t.Fail()
 		}
 		var tableName string
-		if err = fetchOneRow(db, "select name from sqlite_master where type = 'table'", &tableName); err != nil {
+		if err = fetchOneRow(db, "select name from sqlite_master where type = 'table' and name = 'policies'", &tableName); err != nil {
 			log.Printf("Error fetching one row: %v\n", err)
 			t.Fail()
 		}
-		if tableName != "policies" {
-			log.Printf("Table name is not policies: %s\n", tableName)
+		db.Close()
+	})
+
+	t.Run("roles table is created", func(t *testing.T) {
+		db, err := getInitializedDbHandle()
+		if err != nil {
+			log.Printf("Error getting initialized db handle: %v\n", err)
+			t.Fail()
+		}
+		var tableName string
+		if err = fetchOneRow(db, "select name from sqlite_master where type = 'table' and name = 'roles'", &tableName); err != nil {
+			log.Printf("Error fetching one row: %v\n", err)
 			t.Fail()
 		}
 		db.Close()
@@ -192,6 +202,58 @@ func TestDbLoadWorks(t *testing.T) {
 	}
 }
 
+func TestGetPolicyWorks(t *testing.T) {
+	db, err := getInitializedDbHandle()
+	if err != nil {
+		log.Printf("Error getting initialized db handle: %v\n", err)
+		t.Fail()
+	}
+	policy_set, err := LoadRolePolicies("testdata/valid_policy_set.json")
+	if err != nil {
+		log.Printf("Error loading role policies: %v\n", err)
+		t.Fail()
+	}
+	if err = LoadDbWithPolicies(db, policy_set); err != nil {
+		log.Printf("Error loading db with policies: %v\n", err)
+		t.Fail()
+	}
+
+	policy, err := GetPolicy(db, "admin")
+	if err != nil {
+		log.Printf("Error getting policy: %v\n", err)
+		t.Fail()
+	}
+	if policy.ToJson() != `null` {
+		log.Printf("Policy mismatch: got %s, want %s\n", policy.ToJson(), `null`)
+		t.Fail()
+	}
+	db.Close()
+}
+
+func TestGetPolicyFailsIfRoleDoesNotExist(t *testing.T) {
+	db, err := getInitializedDbHandle()
+	if err != nil {
+		log.Printf("Error getting initialized db handle: %v\n", err)
+		t.Fail()
+	}
+	policy_set, err := LoadRolePolicies("testdata/valid_policy_set.json")
+	if err != nil {
+		log.Printf("Error loading role policies: %v\n", err)
+		t.Fail()
+	}
+	if err = LoadDbWithPolicies(db, policy_set); err != nil {
+		log.Printf("Error loading db with policies: %v\n", err)
+		t.Fail()
+	}
+
+	_, err = GetPolicy(db, "does_not_exist")
+	if err == nil {
+		log.Printf("Expected error getting policy for role that does not exist, but got none")
+		t.Fail()
+	}
+	db.Close()
+}
+
 func getInitializedDbHandle() (*sql.DB, error) {
 	db, err := getDbHandle()
 	if err != nil {
@@ -229,5 +291,9 @@ func fetchOneRow(db *sql.DB, query string, dest ...any) error {
 		return fmt.Errorf("no rows found")
 	}
 
-	return rows.Scan(dest...)
+	out := rows.Scan(dest...)
+	if rows.Next() {
+		return fmt.Errorf("Found too many rows (expected 1, got >1)")
+	}
+	return out
 }

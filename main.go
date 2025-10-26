@@ -177,7 +177,7 @@ func main() {
 	if role != "" {
 		policy, err := GetPolicy(db, role)
 		if err != nil {
-			fmt.Println("Error getting policy:", err)
+			fmt.Printf("Error getting policy for role %s: %v\n", role, err)
 			os.Exit(1)
 		}
 		fmt.Println(policy.ToJson())
