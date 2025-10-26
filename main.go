@@ -154,6 +154,7 @@ func main() {
 		fmt.Println("Error getting db handle:", err)
 		os.Exit(1)
 	}
+	defer db.Close()
 
 	if config_file != "" {
 		policy_set, err := LoadRolePolicies(config_file)
@@ -161,19 +162,14 @@ func main() {
 			fmt.Println("Error loading policies:", err)
 			os.Exit(1)
 		}
-		fmt.Println("Policies loaded successfully")
-		InitDb(db)
-		if err != nil {
+		if err = InitDb(db); err != nil {
 			fmt.Println("Error initializing db:", err)
 			os.Exit(1)
 		}
-		fmt.Println("DB initialized successfully")
-		LoadDbWithPolicies(db, policy_set)
-		if err != nil {
+		if err = LoadDbWithPolicies(db, policy_set); err != nil {
 			fmt.Println("Error loading policies into db:", err)
 			os.Exit(1)
 		}
-		fmt.Println("Policies loaded into db successfully")
 		os.Exit(0)
 	}
 
