@@ -105,44 +105,23 @@ func TestValidateConfigFails(t *testing.T) {
 
 func TestDbInitWorks(t *testing.T) {
 	t.Run("InitDb works", func(t *testing.T) {
-		db, err := getDbHandle()
-		if err != nil {
-			log.Printf("Error getting db handle: %v\n", err)
-			t.Fail()
+		db := getDbHandle(t)
+		if err := InitDb(db); err != nil {
+			t.Fatalf("Error initializing db: %v\n", err)
 		}
-
-		if err = InitDb(db); err != nil {
-			log.Printf("Error initializing db: %v\n", err)
-			t.Fail()
-		}
-		db.Close()
 	})
 
 	t.Run("policies table is created", func(t *testing.T) {
-		db, err := getInitializedDbHandle()
-		if err != nil {
-			log.Printf("Error getting initialized db handle: %v\n", err)
-			t.Fail()
-		}
+		db := getInitializedDbHandle(t)
 		var tableName string
-		if err = fetchOneRow(db, "select name from sqlite_master where type = 'table' and name = 'policies'", &tableName); err != nil {
-			log.Printf("Error fetching one row: %v\n", err)
-			t.Fail()
-		}
+		fetchOneRow(t, db, "select name from sqlite_master where type = 'table' and name = 'policies'", &tableName)
 		db.Close()
 	})
 
 	t.Run("roles table is created", func(t *testing.T) {
-		db, err := getInitializedDbHandle()
-		if err != nil {
-			log.Printf("Error getting initialized db handle: %v\n", err)
-			t.Fail()
-		}
+		db := getInitializedDbHandle(t)
 		var tableName string
-		if err = fetchOneRow(db, "select name from sqlite_master where type = 'table' and name = 'roles'", &tableName); err != nil {
-			log.Printf("Error fetching one row: %v\n", err)
-			t.Fail()
-		}
+		fetchOneRow(t, db, "select name from sqlite_master where type = 'table' and name = 'roles'", &tableName)
 		db.Close()
 	})
 }
@@ -179,23 +158,16 @@ func TestDbLoadWorks(t *testing.T) {
 
 	for _, test := range policies {
 		t.Run(fmt.Sprintf("db load: %s", test.output), func(t *testing.T) {
-			db, err := getInitializedDbHandle()
-			if err != nil {
-				log.Printf("Error getting initialized db handle: %v\n", err)
-				t.Fail()
-			}
-			if err = LoadDbWithPolicies(db, &PolicySet{Policies: []Policy{test.input}}); err != nil {
-				log.Printf("Error loading db with policies: %v\n", err)
-				t.Fail()
+			db := getInitializedDbHandle(t)
+			if err := LoadDbWithPolicies(db, &PolicySet{Policies: []Policy{test.input}}); err != nil {
+				t.Fatalf("Error loading db with policies: %v\n", err)
 			}
 			fetch, err := GetPolicy(db, test.input.Role)
 			if err != nil {
-				log.Printf("Error getting policy: %v\n", err)
-				t.Fail()
+				t.Fatalf("Error getting policy: %v\n", err)
 			}
 			if fetch.ToJson() != test.output {
-				log.Printf("Policy mismatch: got %s, want %s\n", fetch.ToJson(), test.output)
-				t.Fail()
+				t.Fatalf("Policy mismatch: got %s, want %s\n", fetch.ToJson(), test.output)
 			}
 			db.Close()
 		})
@@ -203,97 +175,76 @@ func TestDbLoadWorks(t *testing.T) {
 }
 
 func TestGetPolicyWorks(t *testing.T) {
-	db, err := getInitializedDbHandle()
-	if err != nil {
-		log.Printf("Error getting initialized db handle: %v\n", err)
-		t.Fail()
-	}
+	db := getInitializedDbHandle(t)
 	policy_set, err := LoadRolePolicies("testdata/valid_policy_set.json")
 	if err != nil {
-		log.Printf("Error loading role policies: %v\n", err)
-		t.Fail()
+		t.Fatalf("Error loading role policies: %v\n", err)
 	}
-	if err = LoadDbWithPolicies(db, policy_set); err != nil {
-		log.Printf("Error loading db with policies: %v\n", err)
-		t.Fail()
+	if err := LoadDbWithPolicies(db, policy_set); err != nil {
+		t.Fatalf("Error loading db with policies: %v\n", err)
 	}
 
 	policy, err := GetPolicy(db, "admin")
 	if err != nil {
-		log.Printf("Error getting policy: %v\n", err)
-		t.Fail()
+		t.Fatalf("Error getting policy: %v\n", err)
 	}
 	if policy.ToJson() != `null` {
-		log.Printf("Policy mismatch: got %s, want %s\n", policy.ToJson(), `null`)
-		t.Fail()
+		t.Fatalf("Policy mismatch: got %s, want %s\n", policy.ToJson(), `null`)
 	}
 	db.Close()
 }
 
 func TestGetPolicyFailsIfRoleDoesNotExist(t *testing.T) {
-	db, err := getInitializedDbHandle()
-	if err != nil {
-		log.Printf("Error getting initialized db handle: %v\n", err)
-		t.Fail()
-	}
+	db := getInitializedDbHandle(t)
 	policy_set, err := LoadRolePolicies("testdata/valid_policy_set.json")
 	if err != nil {
-		log.Printf("Error loading role policies: %v\n", err)
-		t.Fail()
+		t.Fatalf("Error loading role policies: %v\n", err)
 	}
-	if err = LoadDbWithPolicies(db, policy_set); err != nil {
-		log.Printf("Error loading db with policies: %v\n", err)
-		t.Fail()
+	if err := LoadDbWithPolicies(db, policy_set); err != nil {
+		t.Fatalf("Error loading db with policies: %v\n", err)
 	}
 
 	_, err = GetPolicy(db, "does_not_exist")
 	if err == nil {
-		log.Printf("Expected error getting policy for role that does not exist, but got none")
-		t.Fail()
+		t.Error("Expected error getting policy for role that does not exist, but got none")
 	}
 	db.Close()
 }
 
-func getInitializedDbHandle() (*sql.DB, error) {
-	db, err := getDbHandle()
-	if err != nil {
-		return nil, err
+func getInitializedDbHandle(t *testing.T) *sql.DB {
+	db := getDbHandle(t)
+	if err := InitDb(db); err != nil {
+		t.Fatalf("Error initializing db: %v\n", err)
 	}
-	if err = InitDb(db); err != nil {
-		return nil, err
-	}
-	return db, nil
+	return db
 }
 
-func getDbHandle() (*sql.DB, error) {
-	var err error
-	var db *sql.DB
-	db, err = sql.Open("sqlite", ":memory:")
+func getDbHandle(t *testing.T) *sql.DB {
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
-		return nil, err
+		t.Fatalf("Error opening db: %v\n", err)
 	}
 
-	if err = db.Ping(); err != nil {
-		return nil, err
+	if err := db.Ping(); err != nil {
+		t.Fatalf("Error pinging db: %v\n", err)
 	}
 
-	return db, nil
+	return db
 }
 
-func fetchOneRow(db *sql.DB, query string, dest ...any) error {
+func fetchOneRow(t *testing.T, db *sql.DB, query string, dest ...any) {
 	rows, err := db.Query(query)
 	if err != nil {
-		return err
+		t.Fatalf("Error querying db: %v\n", err)
 	}
 	defer rows.Close()
 
 	if !rows.Next() {
-		return fmt.Errorf("no rows found")
+		t.Fatalf("No rows found")
 	}
 
-	out := rows.Scan(dest...)
+	rows.Scan(dest...)
 	if rows.Next() {
-		return fmt.Errorf("Found too many rows (expected 1, got >1)")
+		t.Fatalf("Found too many rows (expected 1, got >1)")
 	}
-	return out
 }
