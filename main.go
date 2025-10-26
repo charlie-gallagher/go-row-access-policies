@@ -7,6 +7,9 @@ import (
 	"os"
 )
 
+// I confess I wrote a weak version of this help text and then had Cursor
+// make it better. It used man-page formatting instead of help-text formatting,
+// but that's ok.
 const help_text = `ROWCTRL(1)                    User Commands                   ROWCTRL(1)
 
 NAME
@@ -136,13 +139,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if db_file == "" {
-		fmt.Println("Error: --db option is required")
+	if config_file == "" && role == "" {
+		fmt.Println("Error: either --help, --load or --get must be specified")
 		os.Exit(1)
 	}
 
-	if config_file == "" && role == "" {
-		fmt.Println("Error: either --load or --get must be specified")
+	if db_file == "" {
+		fmt.Println("Error: --db option is required")
 		os.Exit(1)
 	}
 
