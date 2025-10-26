@@ -3,29 +3,76 @@
         {
             "role": "admin",
             "policy": [
-                {"column": "Region", "values": ["__all__"]},
-                {"column": "State", "values": ["__all__"]}
+                {
+                    "column": "Region",
+                    "values": [
+                        "__all__"
+                    ]
+                },
+                {
+                    "column": "State",
+                    "values": [
+                        "__all__"
+                    ]
+                }
             ]
         },
         {
             "role": "eastern_region_sales_manager",
             "policy": [
-                {"column": "Region", "values": ["Eastern"]},
-                {"column": "State", "values": ["__all__"]}
+                {
+                    "column": "Region",
+                    "values": [
+                        "Eastern"
+                    ]
+                },
+                {
+                    "column": "State",
+                    "values": [
+                        "__all__"
+                    ]
+                }
             ]
         },
         {
             "role": "north_eastern_sales_manager",
             "policy": [
-                {"column": "Region", "values": ["Northern", "Eastern"]},
-                {"column": "State", "values": ["Massachusetts", "New York", "Pennsylvania", "Rhode Island", "Vermont"]}
+                {
+                    "column": "Region",
+                    "values": [
+                        "Northern",
+                        "Eastern"
+                    ]
+                },
+                {
+                    "column": "State",
+                    "values": [
+                        "Massachusetts",
+                        "New York",
+                        "New Hampshire",
+                        "Rhode Island",
+                        "Vermont",
+                        "Maine",
+                        "Connecticut"
+                    ]
+                }
             ]
         },
         {
             "role": "pa_sales_manager",
             "policy": [
-                {"column": "Region", "values": ["Eastern"]},
-                {"column": "State", "values": ["Pennsylvania"]}
+                {
+                    "column": "Region",
+                    "values": [
+                        "Eastern"
+                    ]
+                },
+                {
+                    "column": "State",
+                    "values": [
+                        "Pennsylvania"
+                    ]
+                }
             ]
         }
     ]
