@@ -23,7 +23,7 @@ func TestPolicyItemConvertsToJson(t *testing.T) {
 		t.Run(fmt.Sprintf("input: %v, output: %s", test.input, test.output), func(t *testing.T) {
 			got := test.input.ToJson()
 			if got != test.output {
-				t.Fail()
+				t.Errorf("Policy item mismatch: got %s, want %s\n", got, test.output)
 			}
 		})
 	}
@@ -45,7 +45,7 @@ func TestPolicyConvertsToJson(t *testing.T) {
 		t.Run(fmt.Sprintf("input: %v, output: %s", test.input, test.output), func(t *testing.T) {
 			got := test.input.ToJson()
 			if got != test.output {
-				t.Fail()
+				t.Errorf("Policy mismatch: got %s, want %s\n", got, test.output)
 			}
 		})
 	}
@@ -55,7 +55,7 @@ func TestValidateConfigWorks(t *testing.T) {
 	t.Run("Valid config file", func(t *testing.T) {
 		err := ValidateConfigFile("testdata/valid_policy_set.json")
 		if err != nil {
-			t.Fail()
+			t.Errorf("Error validating config file: %v\n", err)
 		}
 	})
 
@@ -79,7 +79,7 @@ func TestValidateConfigFails(t *testing.T) {
 	t.Run("Invalid config file", func(t *testing.T) {
 		err := ValidateConfigFile("testdata/invalid_policy_set.json")
 		if err == nil {
-			t.Fail()
+			t.Errorf("Expected error validating config file, but got none")
 		}
 	})
 
@@ -95,7 +95,7 @@ func TestValidateConfigFails(t *testing.T) {
 		t.Run(fmt.Sprintf("invalid policy set: %s", test), func(t *testing.T) {
 			err := ValidateConfig([]byte(test))
 			if err == nil {
-				t.Fail()
+				t.Errorf("Expected error validating config, but got none")
 			}
 		})
 	}
