@@ -212,6 +212,7 @@ func TestGetPolicyFailsIfRoleDoesNotExist(t *testing.T) {
 }
 
 func getInitializedDbHandle(t *testing.T) *sql.DB {
+	t.Helper()
 	db := getDbHandle(t)
 	if err := InitDb(db); err != nil {
 		t.Fatalf("Error initializing db: %v\n", err)
@@ -220,6 +221,7 @@ func getInitializedDbHandle(t *testing.T) *sql.DB {
 }
 
 func getDbHandle(t *testing.T) *sql.DB {
+	t.Helper()
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("Error opening db: %v\n", err)
@@ -233,6 +235,7 @@ func getDbHandle(t *testing.T) *sql.DB {
 }
 
 func fetchOneRow(t *testing.T, db *sql.DB, query string, dest ...any) {
+	t.Helper()
 	rows, err := db.Query(query)
 	if err != nil {
 		t.Fatalf("Error querying db: %v\n", err)
