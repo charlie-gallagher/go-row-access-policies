@@ -27,10 +27,6 @@ clean_all() {
     clean_bin
 }
 
-# usage: update_return_value "test string"
-#
-# If the test string starts with "Failed:", then set return_value to 1
-# otherwise, leave return_value alone.
 update_return_value() {
     if [[ $1 == "Failed:"* ]]; then
         RETURN_VALUE=1
