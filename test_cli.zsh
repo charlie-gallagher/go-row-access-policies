@@ -125,10 +125,34 @@ test_role_name_validation() {
         print "Failed: did not error on invalid role name"
     fi
 }
+
+test_cli_errors_for_load_and_get() {
+    local -a load_command=("${base_command[@]}")
+    load_command+=(--load config.json --get admin)
+    $load_command
+    if (( $? != 0 )); then
+        print "Successfully errored for load and get"
+    else
+        print "Failed: did not error for load and get"
+    fi
+}
+
+test_cli_errors_for_no_flags() {
+    local -a no_flags_command=("${base_command[@]}")
+    $no_flags_command
+    if (( $? != 0 )); then
+        print "Successfully errored for no flags"
+    else
+        print "Failed: did not error for no flags"
+    fi
+}
+
 update_return_value "$(test_db_load)"
 update_return_value "$(test_db_fetch)"
 update_return_value "$(test_db_failed_fetch)"
 update_return_value "$(test_can_load_multiple_configs)"
 update_return_value "$(test_role_name_validation)"
+update_return_value "$(test_cli_errors_for_load_and_get)"
+update_return_value "$(test_cli_errors_for_no_flags)"
 clean
 exit $RETURN_VALUE

@@ -108,6 +108,7 @@ func main() {
 	var db_file string
 	var config_file string
 	var role string
+	var mode string
 
 	pflag.BoolVarP(&help, "help", "h", false, "display help message")
 	pflag.StringVarP(&db_file, "db", "d", "", "database file")
@@ -121,13 +122,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	if config_file != "" && role != "" {
-		fmt.Println("Error: --load and --get cannot be used together")
-		os.Exit(1)
-	}
-
-	if config_file == "" && role == "" {
-		fmt.Println("Error: either --help, --load or --get must be specified")
+	mode, err := getModeFromFlags(config_file, role)
+	if err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
 
@@ -143,14 +140,14 @@ func main() {
 	}
 	defer db.Close()
 
-	if config_file != "" {
+	// Load policies into database
+	if mode == "load" {
 		policy_set, err := LoadRolePolicies(config_file)
 		if err != nil {
 			fmt.Println("Error loading policies:", err)
 			os.Exit(1)
 		}
 		if db_initialized := DbAlreadyInitialized(db); !db_initialized {
-			// Init db
 			if err = InitDb(db); err != nil {
 				fmt.Println("Error initializing db:", err)
 				os.Exit(1)
@@ -163,7 +160,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	if role != "" {
+	// Get and print policy for role
+	if mode == "get" {
 		policy, err := GetPolicy(db, role)
 		if err != nil {
 			fmt.Printf("Error getting policy for role %s: %v\n", role, err)
@@ -187,4 +185,17 @@ func getFileDbHandle(fname string) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+func getModeFromFlags(config_file, role string) (string, error) {
+	if config_file != "" && role != "" {
+		return "", fmt.Errorf("Error: --load and --get cannot be used together")
+	}
+	if config_file == "" && role == "" {
+		return "", fmt.Errorf("Error: either --help, --load or --get must be specified")
+	}
+	if config_file != "" {
+		return "load", nil
+	}
+	return "get", nil
 }
