@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -268,6 +269,49 @@ func TestOverwritePolicyWorks(t *testing.T) {
 	expected_policy := `{"role":"admin","policy":[{"column":"Region","values":["three","four"]}]}`
 	if policy.ToJson() != expected_policy {
 		t.Errorf("Policy mismatch: got %s, want %s\n", policy.ToJson(), expected_policy)
+	}
+}
+
+func TestPolicyUploadValidatesRoleNames(t *testing.T) {
+	valid_roles := []string{
+		"admin",
+		"east_mgr",
+		"north_mgr",
+		"pa_sales_manager",
+		"world-advisor",
+		"GLOBAL_EMPIRE_ADMIN",
+		"CaribouGone",
+		"admin1234567890",
+	}
+	invalid_roles := []string{
+		"admin admin",
+		"user@example.com",
+		"",
+		" ",
+		"   ",
+		"-admin",
+		"123admin",
+		"admin-",
+		"@@$$@3%",
+		"admin@@$$@3",
+		"world–advisor", // U+2013, not U+002D
+		strings.Repeat("a", 256),
+		`this_role_has
+a_newline`,
+	}
+	for _, role := range valid_roles {
+		t.Run(fmt.Sprintf("Valid role: %s", role), func(t *testing.T) {
+			if is_valid := IsValidRoleName(role); !is_valid {
+				t.Errorf("Valid role reported as invalid: %s\n", role)
+			}
+		})
+	}
+	for _, role := range invalid_roles {
+		t.Run(fmt.Sprintf("Invalid role: %s", role), func(t *testing.T) {
+			if is_valid := IsValidRoleName(role); is_valid {
+				t.Errorf("Invalid role reported as valid: %s\n", role)
+			}
+		})
 	}
 }
 

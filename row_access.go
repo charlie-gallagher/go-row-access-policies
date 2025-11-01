@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
-
 	"github.com/santhosh-tekuri/jsonschema/v6"
+	"os"
+	"regexp"
 
 	_ "modernc.org/sqlite"
 )
@@ -174,6 +174,16 @@ func tryAddRoleToRolesTable(db *sql.DB, role string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// Return true if the role name is valid, false otherwise
+//
+// A valid role name must:
+// - Start and end with a letter or number
+// - Contain only letters, numbers, hyphens, and underscores
+// - Be between 1 and 255 characters long
+func IsValidRoleName(role string) bool {
+	return regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]+[a-zA-Z0-9]$`).MatchString(role) && len(role) > 0 && len(role) <= 255
 }
 
 func LoadDbFromFile(db *sql.DB, fname string) error {
