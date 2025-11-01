@@ -6,7 +6,7 @@ clean() {
     fi
 }
 
-return_value=0
+RETURN_VALUE=0
 
 # usage: update_return_value "test string"
 #
@@ -14,7 +14,7 @@ return_value=0
 # otherwise, leave return_value alone.
 update_return_value() {
     if [[ $1 == "Failed:"* ]]; then
-        return_value=1
+        RETURN_VALUE=1
     fi
     print "$1"
 }
@@ -131,4 +131,4 @@ update_return_value "$(test_db_failed_fetch)"
 update_return_value "$(test_can_load_multiple_configs)"
 update_return_value "$(test_role_name_validation)"
 clean
-exit $return_value
+exit $RETURN_VALUE
