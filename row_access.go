@@ -159,6 +159,10 @@ func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
 }
 
 func tryAddRoleToRolesTable(db *sql.DB, role string) (bool, error) {
+	// Validate role name
+	if !IsValidRoleName(role) {
+		return false, fmt.Errorf("invalid role name: %s", role)
+	}
 	// Check if role already exists
 	rows, err := db.Query("select role from roles where role = ?", role)
 	if err != nil {

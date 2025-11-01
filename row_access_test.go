@@ -315,6 +315,19 @@ a_newline`,
 	}
 }
 
+func TestPolicyUploadFailsIfRoleNameIsInvalid(t *testing.T) {
+	db := getInitializedDbHandle(t)
+	defer db.Close()
+	policy_set := PolicySet{Policies: []Policy{{Role: getInvalidRoleName(), Policy: []PolicyItem{{Column: "Region", Values: []string{"one", "two"}}}}}}
+	if err := LoadDbWithPolicies(db, &policy_set); err == nil {
+		t.Errorf("Expected error loading db with policies, but got none")
+	}
+}
+
+func getInvalidRoleName() string {
+	return "-admin"
+}
+
 func getInitializedDbHandle(t *testing.T) *sql.DB {
 	t.Helper()
 	db := getDbHandle(t)
