@@ -1,4 +1,19 @@
 # Row access control program
+## Quick start
+A simple row access service written in Go.
+
+Uses [go-task](https://github.com/go-task/task) as a build tool.
+
+```sh
+task test build
+./row_access --db test.db --load config.json
+./row_access --db test.db --get pa_sales_manager
+## {"role":"pa_sales_manager","policy":[{"column":"Region","values":["Eastern"]},{"column":"State","values":["Pennsylvania"]}]}
+```
+
+It's a straightforward service where you write policies for roles, then you can query those policies to see what a particular role has access to. You can load multiple separate config files into the database, which is persisted as a SQLite file. I've been writing this service mainly as a learning tool for Go, but also I guess as a portfolio piece for how I'm thinking about access control (see discussion below).
+
+## Background
 In BI applications, programs typically offer row-based controls that limit what
 data certain users can view.
 
@@ -325,9 +340,7 @@ Ok, I'm going with a CLI for now. Later, I can put this into a server if I want 
 ## To-dos
 There's not much to this, but there are still things I'd like to improve.
 
-- [ ] Improve CLI argument handling
 - [ ] Install `config_schema.json` into a standard location (or store natively)
-- [ ] CLI tests in bash
 - [ ] 
 
 
