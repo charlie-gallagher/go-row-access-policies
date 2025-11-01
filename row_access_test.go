@@ -124,8 +124,49 @@ func TestDbInitWorks(t *testing.T) {
 	})
 }
 
-func TestDbLoadWorks(t *testing.T) {
-	// TODO: This test set needs to be broken up. It tests DbLoad, GetPolicy, and ToJson.
+func TestDbLoadAddsToDatabase_ManuallyRetrieved(t *testing.T) {
+	// Setup: Load the policy into the database with LoadDbWithPolicies
+	db := getInitializedDbHandle(t)
+	defer db.Close()
+	policy_set := PolicySet{Policies: []Policy{{Role: "admin", Policy: []PolicyItem{{Column: "Region", Values: []string{"one"}}}}}}
+	if err := LoadDbWithPolicies(db, &policy_set); err != nil {
+		t.Fatalf("Error loading db with policies: %v\n", err)
+	}
+	// Verify the value "one" is in the policies table
+	var value string
+	fetchOneRow(t, db, "select value from policies where role = 'admin' and control_column = 'Region'", &value)
+	if value != "one" {
+		t.Errorf("Value mismatch: got %s, want %s\n", value, "one")
+	}
+	// Verify the role "admin" is in the roles table
+	var role string
+	fetchOneRow(t, db, "select role from roles where role = 'admin'", &role)
+	if role != "admin" {
+		t.Errorf("Role mismatch: got %s, want %s\n", role, "admin")
+	}
+}
+
+func TestGetPolicyWorks_ManuallyLoaded(t *testing.T) {
+	// Setup: Manually load the policy into the database
+	db := getInitializedDbHandle(t)
+	defer db.Close()
+	if _, err := db.Exec("insert into policies (role, control_column, value) values ('admin', 'Region', 'one')"); err != nil {
+		t.Fatalf("Error inserting policy: %v\n", err)
+	}
+	if _, err := db.Exec("insert into roles (role) values ('admin')"); err != nil {
+		t.Fatalf("Error inserting role: %v\n", err)
+	}
+	// Test: Get the policy
+	policy, err := GetPolicy(db, "admin")
+	if err != nil {
+		t.Fatalf("Error getting policy: %v\n", err)
+	}
+	if policy.ToJson() != `{"role":"admin","policy":[{"column":"Region","values":["one"]}]}` {
+		t.Errorf("Policy mismatch: got %s, want %s\n", policy.ToJson(), `{"role":"admin","policy":[{"column":"Region","values":["one"]}]}`)
+	}
+}
+
+func TestDbLoadWorks_RoundTrip(t *testing.T) {
 
 	policies := map[string]struct {
 		input  Policy
