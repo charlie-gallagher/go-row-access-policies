@@ -6,6 +6,7 @@ clean() {
     fi
 }
 
+BASE_COMMAND=(go run . --db ex.db)
 RETURN_VALUE=0
 
 # usage: update_return_value "test string"
@@ -19,11 +20,10 @@ update_return_value() {
     print "$1"
 }
 
-local -a base_command=(go run . --db ex.db)
 
 load_db() {
     clean
-    local -a load_command=("${base_command[@]}")
+    local -a load_command=("${BASE_COMMAND[@]}")
     load_command+=(--load config.json)
     $load_command
     if (( $? != 0 )); then
@@ -38,8 +38,8 @@ load_db() {
 
 load_db_2() {
     clean
-    local -a load_command_1=("${base_command[@]}")
-    local -a load_command_2=("${base_command[@]}")
+    local -a load_command_1=("${BASE_COMMAND[@]}")
+    local -a load_command_2=("${BASE_COMMAND[@]}")
     load_command_1+=(--load config.json)
     $load_command_1
     load_command_2+=(--load config_2.json)
@@ -53,7 +53,7 @@ load_db_2() {
 
 test_db_load() {
     clean
-    local -a load_command=("${base_command[@]}")
+    local -a load_command=("${BASE_COMMAND[@]}")
     load_command+=(--load config.json)
 
     $load_command
@@ -72,7 +72,7 @@ test_db_fetch() {
         print "$response"
         return 1
     fi
-    local -a get_command=("${base_command[@]}")
+    local -a get_command=("${BASE_COMMAND[@]}")
     get_command+=(--get eastern_region_sales_manager)
     results=$( $get_command )
     if (( $? != 0 )); then
@@ -88,7 +88,7 @@ test_db_failed_fetch() {
         print "$response"
         return 1
     fi
-    local -a get_command=("${base_command[@]}")
+    local -a get_command=("${BASE_COMMAND[@]}")
     get_command+=(--get does_not_exist)
     results=$( $get_command )
     if (( $? == 0 )); then
@@ -114,7 +114,7 @@ test_can_load_multiple_configs() {
 
 
 test_role_name_validation() {
-    local -a validate_command=("${base_command[@]}")
+    local -a validate_command=("${BASE_COMMAND[@]}")
     tmp_file=$(mktemp)
     echo '{"policies":[{"role":"-admin-", "policy":[{"column":"Region", "values":["one", "two"]}]}]}' > $tmp_file
     validate_command+=(--load $tmp_file)
@@ -127,7 +127,7 @@ test_role_name_validation() {
 }
 
 test_cli_errors_for_load_and_get() {
-    local -a load_command=("${base_command[@]}")
+    local -a load_command=("${BASE_COMMAND[@]}")
     load_command+=(--load config.json --get admin)
     $load_command
     if (( $? != 0 )); then
@@ -138,7 +138,7 @@ test_cli_errors_for_load_and_get() {
 }
 
 test_cli_errors_for_no_flags() {
-    local -a no_flags_command=("${base_command[@]}")
+    local -a no_flags_command=("${BASE_COMMAND[@]}")
     $no_flags_command
     if (( $? != 0 )); then
         print "Successfully errored for no flags"
