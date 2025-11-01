@@ -128,8 +128,16 @@ func DbAlreadyInitialized(db *sql.DB) bool {
 func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
 	for _, role_policy := range policy_set.Policies {
 		// First, add role to `roles` table, if not already there
-		if err := tryAddRoleToRolesTable(db, role_policy.Role); err != nil {
+		was_created, err := tryAddRoleToRolesTable(db, role_policy.Role)
+		if err != nil {
 			return err
+		}
+
+		// If the role already exists, truncate all of its policies
+		if !was_created {
+			if _, err := db.Exec("delete from policies where role = ?", role_policy.Role); err != nil {
+				return err
+			}
 		}
 		for _, policy_item := range role_policy.Policy {
 			// If the only policy item is __all__, then we don't need to insert any policies
@@ -150,22 +158,22 @@ func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
 	return nil
 }
 
-func tryAddRoleToRolesTable(db *sql.DB, role string) error {
+func tryAddRoleToRolesTable(db *sql.DB, role string) (bool, error) {
 	// Check if role already exists
 	rows, err := db.Query("select role from roles where role = ?", role)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer rows.Close()
 	if rows.Next() {
-		return nil
+		return false, nil
 	}
 	// Add role to table
 	_, err = db.Exec("insert into roles (role) values (?)", role)
 	if err != nil {
-		return err
+		return false, err
 	}
-	return nil
+	return true, nil
 }
 
 func LoadDbFromFile(db *sql.DB, fname string) error {

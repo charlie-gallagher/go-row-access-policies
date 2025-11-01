@@ -246,6 +246,31 @@ func TestDbAlreadyInitializedWorks(t *testing.T) {
 	}
 }
 
+func TestOverwritePolicyWorks(t *testing.T) {
+	// Setup: Two overlapping policy sets
+	overlapping_policy_sets := []PolicySet{
+		{Policies: []Policy{{Role: "admin", Policy: []PolicyItem{{Column: "Region", Values: []string{"one", "two"}}}}}},
+		{Policies: []Policy{{Role: "admin", Policy: []PolicyItem{{Column: "Region", Values: []string{"three", "four"}}}}}},
+	}
+	db := getInitializedDbHandle(t)
+	defer db.Close()
+	for _, policy_set := range overlapping_policy_sets {
+		if err := LoadDbWithPolicies(db, &policy_set); err != nil {
+			t.Fatalf("Error loading db with policies: %v\n", err)
+		}
+	}
+
+	// Test: Confirm only last policy set is in database
+	policy, err := GetPolicy(db, "admin")
+	if err != nil {
+		t.Fatalf("Error getting policy: %v\n", err)
+	}
+	expected_policy := `{"role":"admin","policy":[{"column":"Region","values":["three","four"]}]}`
+	if policy.ToJson() != expected_policy {
+		t.Errorf("Policy mismatch: got %s, want %s\n", policy.ToJson(), expected_policy)
+	}
+}
+
 func getInitializedDbHandle(t *testing.T) *sql.DB {
 	t.Helper()
 	db := getDbHandle(t)
