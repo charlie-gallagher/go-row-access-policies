@@ -1,0 +1,20 @@
+version: 3
+
+tasks:
+  test:
+    cmds:
+      - go test .
+      - zsh test_cli.zsh
+  clean:
+    cmds:
+      - rm *.db
+  
+  build:
+    cmds:
+      - go build -o row_access .
+  
+  prep:
+    cmds:
+      - task: test
+      - go fmt .
+      - go mod tidy
