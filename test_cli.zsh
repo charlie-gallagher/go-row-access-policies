@@ -84,8 +84,22 @@ test_can_load_multiple_configs() {
     fi
 }
 
+
+test_role_name_validation() {
+    local -a validate_command=("${base_command[@]}")
+    tmp_file=$(mktemp)
+    echo '{"policies":[{"role":"-admin-", "policy":[{"column":"Region", "values":["one", "two"]}]}]}' > $tmp_file
+    validate_command+=(--load $tmp_file)
+    $validate_command
+    if (( $? != 0 )); then
+        print "Successfully errored on invalid role name"
+    else
+        print "Failed: did not error on invalid role name"
+    fi
+}
 test_db_load
 test_db_fetch
 test_db_failed_fetch
 test_can_load_multiple_configs
+test_role_name_validation
 clean
