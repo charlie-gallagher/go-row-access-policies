@@ -124,18 +124,18 @@ func main() {
 
 	mode, err := getModeFromFlags(config_file, role)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	if db_file == "" {
-		fmt.Println("Error: --db option is required")
+		fmt.Fprintln(os.Stderr, "error: --db option is required")
 		os.Exit(1)
 	}
 
 	db, err := getFileDbHandle(db_file)
 	if err != nil {
-		fmt.Println("Error getting db handle:", err)
+		fmt.Fprintln(os.Stderr, "error: getting db handle:", err)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -144,17 +144,17 @@ func main() {
 	if mode == "load" {
 		policy_set, err := LoadRolePolicies(config_file)
 		if err != nil {
-			fmt.Println("Error loading policies:", err)
+			fmt.Fprintln(os.Stderr, "error: loading policies:", err)
 			os.Exit(1)
 		}
 		if db_initialized := DbAlreadyInitialized(db); !db_initialized {
 			if err = InitDb(db); err != nil {
-				fmt.Println("Error initializing db:", err)
+				fmt.Fprintln(os.Stderr, "error: initializing db:", err)
 				os.Exit(1)
 			}
 		}
 		if err = LoadDbWithPolicies(db, policy_set); err != nil {
-			fmt.Println("Error loading policies into db:", err)
+			fmt.Fprintln(os.Stderr, "error: loading policies into db:", err)
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -164,7 +164,7 @@ func main() {
 	if mode == "get" {
 		policy, err := GetPolicy(db, role)
 		if err != nil {
-			fmt.Printf("Error getting policy for role %s: %v\n", role, err)
+			fmt.Fprintf(os.Stderr, "error: getting policy for role %s: %v\n", role, err)
 			os.Exit(1)
 		}
 		fmt.Println(policy.ToJson())
@@ -189,10 +189,10 @@ func getFileDbHandle(fname string) (*sql.DB, error) {
 
 func getModeFromFlags(config_file, role string) (string, error) {
 	if config_file != "" && role != "" {
-		return "", fmt.Errorf("Error: --load and --get cannot be used together")
+		return "", fmt.Errorf("error: --load and --get cannot be used together")
 	}
 	if config_file == "" && role == "" {
-		return "", fmt.Errorf("Error: either --help, --load or --get must be specified")
+		return "", fmt.Errorf("error: either --help, --load or --get must be specified")
 	}
 	if config_file != "" {
 		return "load", nil
