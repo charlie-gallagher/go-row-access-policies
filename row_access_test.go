@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 )
 
@@ -205,6 +206,43 @@ func TestGetPolicyFailsIfRoleDoesNotExist(t *testing.T) {
 	_, err = GetPolicy(db, "does_not_exist")
 	if err == nil {
 		t.Error("Expected error getting policy for role that does not exist, but got none")
+	}
+}
+
+func TestDbAlreadyInitializedWorks(t *testing.T) {
+	t.Run("Uninitialized db not initialized", func(t *testing.T) {
+		db := getDbHandle(t)
+		defer db.Close()
+		is_initialized := DbAlreadyInitialized(db)
+		if is_initialized {
+			t.Error("Db falsely reported as initialized")
+		}
+	})
+	t.Run("Initialized db initialized", func(t *testing.T) {
+		db := getInitializedDbHandle(t)
+		defer db.Close()
+		is_initialized := DbAlreadyInitialized(db)
+		if !is_initialized {
+			t.Error("Db falsely reported as uninitialized")
+		}
+	})
+
+	partials := map[string]string{
+		"policies": "create table if not exists policies(role varchar, control_column varchar, value varchar)",
+		"roles":    "create table if not exists roles(role varchar unique)",
+	}
+	for tbl, exec_statment := range partials {
+		t.Run(fmt.Sprintf("Uninitialized if only table is %s", tbl), func(t *testing.T) {
+			db := getDbHandle(t)
+			defer db.Close()
+			if _, err := db.Exec(exec_statment); err != nil {
+				t.Fatalf("Failed to create temporary table %v\n", err)
+			}
+			is_initialized := DbAlreadyInitialized(db)
+			if is_initialized {
+				t.Errorf("Db reported as initialized but only has %s\n", tbl)
+			}
+		})
 	}
 }
 
