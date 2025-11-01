@@ -6,6 +6,19 @@ clean() {
     fi
 }
 
+return_value=0
+
+# usage: update_return_value "test string"
+#
+# If the test string starts with "Failed:", then set return_value to 1
+# otherwise, leave return_value alone.
+update_return_value() {
+    if [[ $1 == "Failed:"* ]]; then
+        return_value=1
+    fi
+    print "$1"
+}
+
 local -a base_command=(go run . --db ex.db)
 
 load_db() {
@@ -15,9 +28,12 @@ load_db() {
     $load_command
     if (( $? != 0 )); then
         print "Failed: load command, command returned error code"
+        return 1
     elif [[ ! -f ex.db ]]; then
         print "Failed: load command, ex.db not found"
+        return 1
     fi
+    return 0
 }
 
 load_db_2() {
@@ -51,7 +67,11 @@ test_db_load() {
 }
 
 test_db_fetch() {
-    load_db
+    response="$(load_db)"
+    if (( $? != 0 )); then
+        print "$response"
+        return 1
+    fi
     local -a get_command=("${base_command[@]}")
     get_command+=(--get eastern_region_sales_manager)
     results=$( $get_command )
@@ -63,7 +83,11 @@ test_db_fetch() {
 }
 
 test_db_failed_fetch() {
-    load_db
+    response="$(load_db)"
+    if (( $? != 0 )); then
+        print "$response"
+        return 1
+    fi
     local -a get_command=("${base_command[@]}")
     get_command+=(--get does_not_exist)
     results=$( $get_command )
@@ -75,7 +99,11 @@ test_db_failed_fetch() {
 }
 
 test_can_load_multiple_configs() {
-    load_db_2
+    response="$(load_db)"
+    if (( $? != 0 )); then
+        print "$response"
+        return 1
+    fi
     local found_roles=( $(sqlite3 ex.db 'select * from roles;' ) )
     if (( "${#found_roles}" < 4 )); then
         print "Failed: not enough roles in db"
@@ -97,9 +125,10 @@ test_role_name_validation() {
         print "Failed: did not error on invalid role name"
     fi
 }
-test_db_load
-test_db_fetch
-test_db_failed_fetch
-test_can_load_multiple_configs
-test_role_name_validation
+update_return_value "$(test_db_load)"
+update_return_value "$(test_db_fetch)"
+update_return_value "$(test_db_failed_fetch)"
+update_return_value "$(test_can_load_multiple_configs)"
+update_return_value "$(test_role_name_validation)"
 clean
+exit $return_value
