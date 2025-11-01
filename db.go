@@ -12,8 +12,8 @@ type AccessDB interface {
 	ListTables() ([]string, error)
 	Setup() error
 	Exec(stmt string, args ...any) error
-	Select(query string, args ...any) (any, error)
 	SelectOne(query string, dest any, args ...any) error
+	Select(query string, args ...any) (any, error)
 }
 
 // Default instance of AccessDb is a SqliteDB

@@ -6,37 +6,28 @@ import (
 )
 
 func TestNewSqliteWorks(t *testing.T) {
-	db, err := NewSqliteDB(":memory:")
-	if err != nil {
-		t.Fatalf("Could not create new SqliteDB: %v", err)
-	}
+	db := getNewSqliteDB(t, ":memory:")
 	defer db.handle.Close()
 	// check ping works
-	if err = db.handle.Ping(); err != nil {
+	if err := db.handle.Ping(); err != nil {
 		t.Errorf("ping failed: %v", err)
 	}
 }
 
 func TestSqliteCloseWorks(t *testing.T) {
-	db, err := NewSqliteDB(":memory:")
-	if err != nil {
-		t.Fatalf("Could not create new SqliteDB: %v", err)
-	}
+	db := getNewSqliteDB(t, ":memory:")
 	// Test ping before and after close
-	if err = db.handle.Ping(); err != nil {
+	if err := db.handle.Ping(); err != nil {
 		t.Fatalf("ping unexpectedly failed: %v", err)
 	}
 	db.Close()
-	if err = db.handle.Ping(); err == nil {
+	if err := db.handle.Ping(); err == nil {
 		t.Errorf("ping unexpectedly succeeded: %v", err)
 	}
 }
 
 func TestSqliteListTablesWorks(t *testing.T) {
-	db, err := NewSqliteDB(":memory:")
-	if err != nil {
-		t.Fatalf("Could not create new SqliteDB: %v", err)
-	}
+	db := getNewSqliteDB(t, ":memory:")
 
 	// Create a table manually
 	if _, err := db.handle.Exec("create table if not exists policies(role varchar, control_column varchar, value varchar);"); err != nil {
@@ -54,14 +45,7 @@ func TestSqliteListTablesWorks(t *testing.T) {
 }
 
 func TestSqliteSetupWorks(t *testing.T) {
-	db, err := NewSqliteDB(":memory:")
-	if err != nil {
-		t.Fatalf("could not create new SqliteDB: %v", err)
-	}
-	// Init should create 'policies' and 'roles'
-	if err = db.Setup(); err != nil {
-		t.Fatalf("failed to create system tables: %v", err)
-	}
+	db := getSetupSqliteDB(t, ":memory:")
 
 	// Assert that the tables exist
 	tables, err := db.ListTables()
@@ -104,10 +88,7 @@ func TestSqliteSetupTruncatesExistingTables(t *testing.T) {
 }
 
 func TestSqliteExecWorks(t *testing.T) {
-	db, err := NewSqliteDB(":memory:")
-	if err != nil {
-		t.Fatalf("could not create new SqliteDB: %v", err)
-	}
+	db := getNewSqliteDB(t, ":memory:")
 
 	// Create new table
 	if err := db.Exec("create table if not exists test_table(test_column varchar)"); err != nil {
@@ -125,4 +106,22 @@ func TestSqliteExecWorks(t *testing.T) {
 			t.Errorf("%s not found among system tables", want)
 		}
 	}
+}
+
+func getNewSqliteDB(t *testing.T, connect string) SqliteDB {
+	t.Helper()
+	db, err := NewSqliteDB(connect)
+	if err != nil {
+		t.Fatalf("could not create new SqliteDB: %v", err)
+	}
+	return db
+}
+
+func getSetupSqliteDB(t *testing.T, connect string) SqliteDB {
+	t.Helper()
+	db := getNewSqliteDB(t, connect)
+	if err := db.Setup(); err != nil {
+		t.Fatalf("could not set up db: %v", err)
+	}
+	return db
 }
