@@ -53,10 +53,25 @@ func TestSqliteListTablesWorks(t *testing.T) {
 	}
 }
 
-// func TestSqliteInitWorks(t *testing.T) {
-// 	db, err := NewSqliteDB(":memory:")
-// 	if err != nil {
-// 		t.Fatalf("Could not create new SqliteDB: %v", err)
-// 	}
-// 	// Init should create
-// }
+func TestSqliteInitWorks(t *testing.T) {
+	db, err := NewSqliteDB(":memory:")
+	if err != nil {
+		t.Fatalf("could not create new SqliteDB: %v", err)
+	}
+	// Init should create 'policies' and 'roles'
+	if err = db.Setup(); err != nil {
+		t.Fatalf("failed to create system tables: %v", err)
+	}
+
+	// Assert that the tables exist
+	tables, err := db.ListTables()
+	if err != nil {
+		t.Fatalf("failed to list system tables: %v", err)
+	}
+	expected_tables := []string{"policies", "roles"}
+	for _, want := range expected_tables {
+		if !slices.Contains(tables, want) {
+			t.Errorf("%s not found among system tables", want)
+		}
+	}
+}

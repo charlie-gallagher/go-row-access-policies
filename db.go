@@ -8,11 +8,12 @@ import (
 )
 
 type AccessDB interface {
-	Init() error
 	Close() error
-	Exec(db *sql.DB, stmt string, args ...any) error
-	Select(db *sql.DB, query string, args ...any) (any, error)
-	SelectOne(db *sql.DB, query string, dest any, args ...any) error
+	ListTables() ([]string, error)
+	Setup() error
+	Exec(stmt string, args ...any) error
+	Select(query string, args ...any) (any, error)
+	SelectOne(query string, dest any, args ...any) error
 }
 
 // Default instance of AccessDb is a SqliteDB
@@ -55,4 +56,15 @@ func (db *SqliteDB) ListTables() ([]string, error) {
 		output = append(output, name)
 	}
 	return output, nil
+}
+
+func (db *SqliteDB) Setup() error {
+	if _, err := db.handle.Exec(`
+	create table if not exists policies(role varchar, control_column varchar, value varchar);
+	delete from policies;
+	create table if not exists roles(role varchar unique);
+	delete from roles;`); err != nil {
+		return err
+	}
+	return nil
 }
