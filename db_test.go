@@ -102,3 +102,27 @@ func TestSqliteSetupTruncatesExistingTables(t *testing.T) {
 	}
 	rows.Close()
 }
+
+func TestSqliteExecWorks(t *testing.T) {
+	db, err := NewSqliteDB(":memory:")
+	if err != nil {
+		t.Fatalf("could not create new SqliteDB: %v", err)
+	}
+
+	// Create new table
+	if err := db.Exec("create table if not exists test_table(test_column varchar)"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Confirm that the table is now in the list of tables
+	tables, err := db.ListTables()
+	if err != nil {
+		t.Fatalf("failed to list system tables: %v", err)
+	}
+	expected_tables := []string{"test_table"}
+	for _, want := range expected_tables {
+		if !slices.Contains(tables, want) {
+			t.Errorf("%s not found among system tables", want)
+		}
+	}
+}

@@ -69,3 +69,10 @@ func (db *SqliteDB) Setup() error {
 	}
 	return nil
 }
+
+func (db *SqliteDB) Exec(stmt string, args ...any) error {
+	if _, err := db.handle.Exec(stmt, args...); err != nil {
+		return err
+	}
+	return nil
+}
