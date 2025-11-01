@@ -48,6 +48,7 @@ func (db *SqliteDB) ListTables() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var name string
 	for rows.Next() {
 		if err = rows.Scan(&name); err != nil {

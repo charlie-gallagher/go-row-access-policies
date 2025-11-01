@@ -53,7 +53,7 @@ func TestSqliteListTablesWorks(t *testing.T) {
 	}
 }
 
-func TestSqliteInitWorks(t *testing.T) {
+func TestSqliteSetupWorks(t *testing.T) {
 	db, err := NewSqliteDB(":memory:")
 	if err != nil {
 		t.Fatalf("could not create new SqliteDB: %v", err)
@@ -74,4 +74,31 @@ func TestSqliteInitWorks(t *testing.T) {
 			t.Errorf("%s not found among system tables", want)
 		}
 	}
+}
+
+func TestSqliteSetupTruncatesExistingTables(t *testing.T) {
+	// Create table ahead of time and add some rows to it
+	db := getInitializedDbHandle(t)
+	if _, err := db.Exec(
+		`insert into policies (role, control_column, value) values (?, ?, ?);`,
+		"admin", "Region", "Southern",
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run setup anyway
+	sqlite_db := SqliteDB{handle: db}
+	if err := sqlite_db.Setup(); err != nil {
+		t.Fatalf("failed to (re)create system tables: %v", err)
+	}
+
+	// Confirm that there are no rows in 'policies'
+	rows, err := sqlite_db.handle.Query("select * from policies")
+	if err != nil {
+		t.Fatalf("failed to query policies: %v", err)
+	}
+	if rows.Next() {
+		t.Errorf("expected no rows in policies")
+	}
+	rows.Close()
 }
