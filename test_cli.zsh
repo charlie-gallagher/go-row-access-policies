@@ -1,13 +1,31 @@
 #!/usr/bin/env zsh
 
-clean() {
+
+BASE_COMMAND=(./row_access --db ex.db)
+RETURN_VALUE=0
+
+init() {
+    clean_all
+    go build -o row_access .
+}
+
+
+clean_db() {
     if [[ -f ex.db ]]; then
         rm ex.db
     fi
 }
 
-BASE_COMMAND=(go run . --db ex.db)
-RETURN_VALUE=0
+clean_bin() {
+    if [[ -f row_access ]]; then
+        rm row_access
+    fi
+}
+
+clean_all() {
+    clean_db
+    clean_bin
+}
 
 # usage: update_return_value "test string"
 #
@@ -22,7 +40,7 @@ update_return_value() {
 
 
 load_db() {
-    clean
+    clean_db
     local -a load_command=("${BASE_COMMAND[@]}")
     load_command+=(--load config.json)
     $load_command
@@ -37,7 +55,7 @@ load_db() {
 }
 
 load_db_2() {
-    clean
+    clean_db
     local -a load_command_1=("${BASE_COMMAND[@]}")
     local -a load_command_2=("${BASE_COMMAND[@]}")
     load_command_1+=(--load config.json)
@@ -52,7 +70,7 @@ load_db_2() {
 }
 
 test_db_load() {
-    clean
+    clean_db
     local -a load_command=("${BASE_COMMAND[@]}")
     load_command+=(--load config.json)
 
@@ -147,6 +165,7 @@ test_cli_errors_for_no_flags() {
     fi
 }
 
+init
 update_return_value "$(test_db_load)"
 update_return_value "$(test_db_fetch)"
 update_return_value "$(test_db_failed_fetch)"
@@ -154,5 +173,5 @@ update_return_value "$(test_can_load_multiple_configs)"
 update_return_value "$(test_role_name_validation)"
 update_return_value "$(test_cli_errors_for_load_and_get)"
 update_return_value "$(test_cli_errors_for_no_flags)"
-clean
+clean_all
 exit $RETURN_VALUE
