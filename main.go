@@ -149,9 +149,12 @@ func main() {
 			fmt.Println("Error loading policies:", err)
 			os.Exit(1)
 		}
-		if err = InitDb(db); err != nil {
-			fmt.Println("Error initializing db:", err)
-			os.Exit(1)
+		if db_initialized := DbAlreadyInitialized(db); !db_initialized {
+			// Init db
+			if err = InitDb(db); err != nil {
+				fmt.Println("Error initializing db:", err)
+				os.Exit(1)
+			}
 		}
 		if err = LoadDbWithPolicies(db, policy_set); err != nil {
 			fmt.Println("Error loading policies into db:", err)

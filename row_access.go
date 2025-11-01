@@ -106,6 +106,24 @@ func InitDb(db *sql.DB) error {
 	return nil
 }
 
+func DbAlreadyInitialized(db *sql.DB) bool {
+	rows, err := db.Query("select count(*) from sqlite_master where type = 'table' and name in ('roles', 'policies')")
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+	found_any_tables := rows.Next()
+	if !found_any_tables {
+		return false
+	}
+	var n int
+	if err = rows.Scan(&n); err != nil {
+		fmt.Printf("Error scanning db, %v\n", err)
+		return false
+	}
+	return n == 2
+}
+
 // Load the database with policies from the config
 func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
 	for _, role_policy := range policy_set.Policies {

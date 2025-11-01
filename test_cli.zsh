@@ -20,6 +20,21 @@ load_db() {
     fi
 }
 
+load_db_2() {
+    clean
+    local -a load_command_1=("${base_command[@]}")
+    local -a load_command_2=("${base_command[@]}")
+    load_command_1+=(--load config.json)
+    $load_command_1
+    load_command_2+=(--load config_2.json)
+    $load_command_2
+    if (( $? != 0 )); then
+        print "Failed: load command, command returned error code"
+    elif [[ ! -f ex.db ]]; then
+        print "Failed: load command, ex.db not found"
+    fi
+}
+
 test_db_load() {
     clean
     local -a load_command=("${base_command[@]}")
@@ -59,7 +74,18 @@ test_db_failed_fetch() {
     fi
 }
 
+test_can_load_multiple_configs() {
+    load_db_2
+    local found_roles=( $(sqlite3 ex.db 'select * from roles;' ) )
+    if (( "${#found_roles}" < 4 )); then
+        print "Failed: not enough roles in db"
+    else
+        print "Successfully loaded multiple policies"
+    fi
+}
+
 test_db_load
 test_db_fetch
 test_db_failed_fetch
+test_can_load_multiple_configs
 clean
