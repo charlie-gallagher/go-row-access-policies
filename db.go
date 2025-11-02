@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 
 	_ "modernc.org/sqlite"
 )
@@ -47,17 +46,12 @@ func (db *SqliteDB) Close() error {
 
 func (db *SqliteDB) ListTables() ([]string, error) {
 	var output []string
-	rows, err := db.handle.Query("select name from sqlite_master where type = 'table'")
+	rows, err := db.Select("select name from sqlite_master where type = 'table'")
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var name string
-	for rows.Next() {
-		if err = rows.Scan(&name); err != nil {
-			return nil, fmt.Errorf("error scanning db, %v", err)
-		}
-		output = append(output, name)
+	for _, row := range rows {
+		output = append(output, row["name"].(string))
 	}
 	return output, nil
 }
