@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
-
+	"fmt"
 	_ "modernc.org/sqlite"
 )
 
@@ -81,42 +81,11 @@ func (db *SqliteDB) SelectOne(query string, args ...any) (map[string]any, error)
 	}
 	defer rows.Close()
 
-	if !rows.Next() {
-		return map[string]any{}, sql.ErrNoRows
-	}
-
-	// Populate an N-slice with the values
-	columns, err := rows.Columns()
+	all_rows, err := db.getRows(rows, 1, 1)
 	if err != nil {
 		return map[string]any{}, err
 	}
-	row := make([]any, len(columns))
-	rowPtrs := make([]any, len(columns))
-	for i := range row {
-		rowPtrs[i] = &row[i]
-	}
-	if err := rows.Scan(rowPtrs...); err != nil {
-		return map[string]any{}, err
-	}
-
-	// Check if there are any other rows
-	if rows.Next() {
-		return map[string]any{}, ErrTooManyRows
-	}
-
-	// Construct a map of column name to value
-	rowMap := make(map[string]any)
-	for i, col := range columns {
-		value := row[i]
-
-		if b, ok := value.([]byte); ok {
-			rowMap[col] = string(b)
-		} else {
-			rowMap[col] = value
-		}
-	}
-
-	return rowMap, nil
+	return all_rows[0], nil
 }
 
 func (db *SqliteDB) Select(query string, args ...any) ([]map[string]any, error) {
@@ -126,14 +95,31 @@ func (db *SqliteDB) Select(query string, args ...any) ([]map[string]any, error) 
 	}
 	defer rows.Close()
 
+	out, err := db.getRows(rows, 0, 1000)
+	if err != nil {
+		return []map[string]any{}, err
+	}
+
+	return out, nil
+}
+
+func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) ([]map[string]any, error) {
 	// Populate an N-slice with the values
 	columns, err := rows.Columns()
 	if err != nil {
 		return []map[string]any{}, err
 	}
 
+	n_rows := 0
 	out := []map[string]any{}
 	for rows.Next() {
+		n_rows++
+
+		// Check if we've exceeded the maximum number of rows
+		if n_rows > maxRows {
+			return []map[string]any{}, fmt.Errorf("%w: expected at most %d rows, got %d", ErrTooManyRows, maxRows, n_rows)
+		}
+
 		// Populate an N-slice using slice of pointers to any
 		row := make([]any, len(columns))
 		rowPtrs := make([]any, len(columns))
@@ -156,6 +142,15 @@ func (db *SqliteDB) Select(query string, args ...any) ([]map[string]any, error) 
 			}
 		}
 		out = append(out, rowMap)
+	}
+
+	if n_rows == 0 && minRows > 0 {
+		return []map[string]any{}, fmt.Errorf("%w: expected at least %d rows, got %d", sql.ErrNoRows, minRows, n_rows)
+	}
+
+	// Check if we've satisfied the minimum number of rows
+	if n_rows < minRows {
+		return []map[string]any{}, fmt.Errorf("expected at least %d rows, got %d", minRows, n_rows)
 	}
 
 	return out, nil
