@@ -9,7 +9,7 @@ import (
 
 func TestNewSqliteWorks(t *testing.T) {
 	db := getNewSqliteDB(t, ":memory:")
-	defer db.handle.Close()
+	defer db.Close()
 	// check ping works
 	if err := db.handle.Ping(); err != nil {
 		t.Errorf("ping failed: %v", err)
@@ -18,6 +18,8 @@ func TestNewSqliteWorks(t *testing.T) {
 
 func TestSqliteCloseWorks(t *testing.T) {
 	db := getNewSqliteDB(t, ":memory:")
+	defer db.Close()
+
 	// Test ping before and after close
 	if err := db.handle.Ping(); err != nil {
 		t.Fatalf("ping unexpectedly failed: %v", err)
@@ -30,6 +32,7 @@ func TestSqliteCloseWorks(t *testing.T) {
 
 func TestSqliteListTablesWorks(t *testing.T) {
 	db := getNewSqliteDB(t, ":memory:")
+	defer db.Close()
 
 	// Create a table manually
 	if _, err := db.handle.Exec("create table if not exists policies(role varchar, control_column varchar, value varchar);"); err != nil {
@@ -48,6 +51,7 @@ func TestSqliteListTablesWorks(t *testing.T) {
 
 func TestSqliteSetupWorks(t *testing.T) {
 	db := getSetupSqliteDB(t, ":memory:")
+	defer db.Close()
 
 	// Assert that the tables exist
 	tables, err := db.ListTables()
@@ -65,6 +69,8 @@ func TestSqliteSetupWorks(t *testing.T) {
 func TestSqliteSetupTruncatesExistingTables(t *testing.T) {
 	// Create table ahead of time and add some rows to it
 	db := getInitializedDbHandle(t)
+	defer db.Close()
+
 	if _, err := db.Exec(
 		`insert into policies (role, control_column, value) values (?, ?, ?);`,
 		"admin", "Region", "Southern",
@@ -91,6 +97,7 @@ func TestSqliteSetupTruncatesExistingTables(t *testing.T) {
 
 func TestSqliteExecWorks(t *testing.T) {
 	db := getNewSqliteDB(t, ":memory:")
+	defer db.Close()
 
 	// Create new table
 	if err := db.Exec("create table if not exists test_table(test_column varchar)"); err != nil {
@@ -112,6 +119,7 @@ func TestSqliteExecWorks(t *testing.T) {
 
 func TestSqliteSelectOneWorks(t *testing.T) {
 	db := getSqliteDBWithData(t, ":memory:")
+	defer db.Close()
 
 	// Query for data and inspect result
 	want_map := map[string]string{
@@ -137,6 +145,7 @@ func TestSqliteSelectOneWorks(t *testing.T) {
 
 func TestSqliteSelectOneThrowsForNoRows(t *testing.T) {
 	db := getSqliteDBWithData(t, ":memory:")
+	defer db.Close()
 
 	// Query for data and inspect result
 	_, err := db.SelectOne("select role, control_column, value from policies where role = ?", "not_a_role")
@@ -147,6 +156,7 @@ func TestSqliteSelectOneThrowsForNoRows(t *testing.T) {
 
 func TestSqliteSelectOneThrowsForTwoRows(t *testing.T) {
 	db := getSqliteDBWithData(t, ":memory:")
+	defer db.Close()
 
 	// Query for data and inspect result
 	_, err := db.SelectOne("select role, control_column, value from policies where control_column = ?", "Region")
@@ -157,6 +167,7 @@ func TestSqliteSelectOneThrowsForTwoRows(t *testing.T) {
 
 func TestSqliteSelectWorksForNoRows(t *testing.T) {
 	db := getSetupSqliteDB(t, ":memory:")
+	defer db.Close()
 
 	got_result, err := db.Select("select role, control_column, value from policies")
 	if err != nil {
@@ -169,6 +180,7 @@ func TestSqliteSelectWorksForNoRows(t *testing.T) {
 
 func TestSqliteSelectWorksForOneRow(t *testing.T) {
 	db := getSqliteDBWithData(t, ":memory:")
+	defer db.Close()
 
 	// Query for data and inspect result
 	want_result := []map[string]string{{
@@ -196,6 +208,7 @@ func TestSqliteSelectWorksForOneRow(t *testing.T) {
 
 func TestSqliteSelectWorksForRows(t *testing.T) {
 	db := getSqliteDBWithData(t, ":memory:")
+	defer db.Close()
 
 	// Query for data and inspect result
 	want_result := []map[string]string{
