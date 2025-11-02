@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/spf13/pflag"
 	"os"
@@ -172,19 +171,12 @@ func main() {
 	}
 }
 
-func getFileDbHandle(fname string) (*sql.DB, error) {
-	var err error
-	var db *sql.DB
-	db, err = sql.Open("sqlite", fname)
+func getFileDbHandle(fname string) (*SqliteDB, error) {
+	db, err := NewSqliteDB(fname)
 	if err != nil {
 		return nil, err
 	}
-
-	if err = db.Ping(); err != nil {
-		return nil, err
-	}
-
-	return db, nil
+	return &db, nil
 }
 
 func getModeFromFlags(config_file, role string) (string, error) {

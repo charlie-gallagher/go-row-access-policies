@@ -58,7 +58,7 @@ func (db *SqliteDB) Close() error {
 
 func (db *SqliteDB) ListTables() ([]string, error) {
 	var output []string
-	rows, err := db.Select("select name from sqlite_master where type = 'table'")
+	rows, err := db.Select("select name from sqlite_master where type = 'table' order by name")
 	if err != nil {
 		return nil, err
 	}

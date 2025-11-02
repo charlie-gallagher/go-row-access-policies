@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
 	"testing"
@@ -111,16 +110,14 @@ func TestDbInitWorks(t *testing.T) {
 
 	t.Run("policies table is created", func(t *testing.T) {
 		db := getInitializedDbHandle(t)
-		var tableName string
-		fetchOneRow(t, db, "select name from sqlite_master where type = 'table' and name = 'policies'", &tableName)
-		db.Close()
+		defer db.Close()
+		fetchOneRow(t, db, "select name from sqlite_master where type = 'table' and name = 'policies'")
 	})
 
 	t.Run("roles table is created", func(t *testing.T) {
 		db := getInitializedDbHandle(t)
-		var tableName string
-		fetchOneRow(t, db, "select name from sqlite_master where type = 'table' and name = 'roles'", &tableName)
-		db.Close()
+		defer db.Close()
+		fetchOneRow(t, db, "select name from sqlite_master where type = 'table' and name = 'roles'")
 	})
 }
 
@@ -134,13 +131,13 @@ func TestDbLoadAddsToDatabase_ManuallyRetrieved(t *testing.T) {
 	}
 	// Verify the value "one" is in the policies table
 	var value string
-	fetchOneRow(t, db, "select value from policies where role = 'admin' and control_column = 'Region'", &value)
+	value = fetchOneRow(t, db, "select value from policies where role = 'admin' and control_column = 'Region'")["value"].(string)
 	if value != "one" {
 		t.Errorf("Value mismatch: got %s, want %s\n", value, "one")
 	}
 	// Verify the role "admin" is in the roles table
 	var role string
-	fetchOneRow(t, db, "select role from roles where role = 'admin'", &role)
+	role = fetchOneRow(t, db, "select role from roles where role = 'admin'")["role"].(string)
 	if role != "admin" {
 		t.Errorf("Role mismatch: got %s, want %s\n", role, "admin")
 	}
@@ -150,10 +147,10 @@ func TestGetPolicyWorks_ManuallyLoaded(t *testing.T) {
 	// Setup: Manually load the policy into the database
 	db := getInitializedDbHandle(t)
 	defer db.Close()
-	if _, err := db.Exec("insert into policies (role, control_column, value) values ('admin', 'Region', 'one')"); err != nil {
+	if err := db.Exec("insert into policies (role, control_column, value) values ('admin', 'Region', 'one')"); err != nil {
 		t.Fatalf("Error inserting policy: %v\n", err)
 	}
-	if _, err := db.Exec("insert into roles (role) values ('admin')"); err != nil {
+	if err := db.Exec("insert into roles (role) values ('admin')"); err != nil {
 		t.Fatalf("Error inserting role: %v\n", err)
 	}
 	// Test: Get the policy
@@ -277,7 +274,7 @@ func TestDbAlreadyInitializedWorks(t *testing.T) {
 		t.Run(fmt.Sprintf("Uninitialized if only table is %s", tbl), func(t *testing.T) {
 			db := getDbHandle(t)
 			defer db.Close()
-			if _, err := db.Exec(exec_statment); err != nil {
+			if err := db.Exec(exec_statment); err != nil {
 				t.Fatalf("Failed to create temporary table %v\n", err)
 			}
 			is_initialized := DbAlreadyInitialized(db)
@@ -369,7 +366,7 @@ func getInvalidRoleName() string {
 	return "-admin"
 }
 
-func getInitializedDbHandle(t *testing.T) *sql.DB {
+func getInitializedDbHandle(t *testing.T) *SqliteDB {
 	t.Helper()
 	db := getDbHandle(t)
 	if err := InitDb(db); err != nil {
@@ -379,34 +376,20 @@ func getInitializedDbHandle(t *testing.T) *sql.DB {
 	return db
 }
 
-func getDbHandle(t *testing.T) *sql.DB {
+func getDbHandle(t *testing.T) *SqliteDB {
 	t.Helper()
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := NewSqliteDB(":memory:")
 	if err != nil {
-		t.Fatalf("Error opening db: %v\n", err)
+		t.Fatal(err)
 	}
-
-	if err := db.Ping(); err != nil {
-		t.Fatalf("Error pinging db: %v\n", err)
-	}
-
-	return db
+	return &db
 }
 
-func fetchOneRow(t *testing.T, db *sql.DB, query string, dest ...any) {
+func fetchOneRow(t *testing.T, db *SqliteDB, query string) map[string]any {
 	t.Helper()
-	rows, err := db.Query(query)
+	rows, err := db.SelectOne(query)
 	if err != nil {
 		t.Fatalf("Error querying db: %v\n", err)
 	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		t.Fatalf("No rows found")
-	}
-
-	rows.Scan(dest...)
-	if rows.Next() {
-		t.Fatalf("Found too many rows (expected 1, got >1)")
-	}
+	return rows
 }

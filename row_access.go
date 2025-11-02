@@ -1,17 +1,21 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/santhosh-tekuri/jsonschema/v6"
 	"os"
 	"regexp"
+	"slices"
+
+	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	_ "modernc.org/sqlite"
 )
 
 const json_schema_fname = "config_schema.json"
+
+var NoSuchRole = errors.New("no such role")
 
 type PolicySet struct {
 	Policies []Policy `json:"policies"`
@@ -95,37 +99,29 @@ func ValidateConfig(data []byte) error {
 	return nil
 }
 
-func InitDb(db *sql.DB) error {
-	if _, err := db.Exec(`
-	create table if not exists policies(role varchar, control_column varchar, value varchar);
-	delete from policies;
-	create table if not exists roles(role varchar unique);
-	delete from roles;`); err != nil {
+func InitDb(db *SqliteDB) error {
+	if err := db.Setup(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func DbAlreadyInitialized(db *sql.DB) bool {
-	rows, err := db.Query("select count(*) from sqlite_master where type = 'table' and name in ('roles', 'policies')")
+func DbAlreadyInitialized(db *SqliteDB) bool {
+	tables, err := db.ListTables()
 	if err != nil {
 		return false
 	}
-	defer rows.Close()
-	found_any_tables := rows.Next()
-	if !found_any_tables {
+	if len(tables) != 2 {
 		return false
 	}
-	var n int
-	if err = rows.Scan(&n); err != nil {
-		fmt.Printf("Error scanning db, %v\n", err)
+	if !slices.Equal(tables, []string{"policies", "roles"}) {
 		return false
 	}
-	return n == 2
+	return true
 }
 
 // Load the database with policies from the config
-func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
+func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
 	for _, role_policy := range policy_set.Policies {
 		// First, add role to `roles` table, if not already there
 		was_created, err := tryAddRoleToRolesTable(db, role_policy.Role)
@@ -135,7 +131,7 @@ func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
 
 		// If the role already exists, truncate all of its policies
 		if !was_created {
-			if _, err := db.Exec("delete from policies where role = ?", role_policy.Role); err != nil {
+			if err := db.Exec("delete from policies where role = ?", role_policy.Role); err != nil {
 				return err
 			}
 		}
@@ -146,7 +142,7 @@ func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
 			}
 			// Otherwise, insert the policies
 			for _, value := range policy_item.Values {
-				if _, err := db.Exec(`
+				if err := db.Exec(`
 					insert into policies (role, control_column, value) values (?, ?, ?);
 					`, role_policy.Role, policy_item.Column, value); err != nil {
 					return err
@@ -158,22 +154,24 @@ func LoadDbWithPolicies(db *sql.DB, policy_set *PolicySet) error {
 	return nil
 }
 
-func tryAddRoleToRolesTable(db *sql.DB, role string) (bool, error) {
+// Try to add role to roles table
+//
+// Returns bool indicating if role was added to table (false=existed beforehand)
+func tryAddRoleToRolesTable(db *SqliteDB, role string) (bool, error) {
 	// Validate role name
 	if !IsValidRoleName(role) {
 		return false, fmt.Errorf("invalid role name: %s", role)
 	}
 	// Check if role already exists
-	rows, err := db.Query("select role from roles where role = ?", role)
+	rows, err := db.Select("select role from roles where role = ?", role)
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	if rows.Next() {
+	if len(rows) == 1 {
 		return false, nil
 	}
 	// Add role to table
-	_, err = db.Exec("insert into roles (role) values (?)", role)
+	err = db.Exec("insert into roles (role) values (?)", role)
 	if err != nil {
 		return false, err
 	}
@@ -190,7 +188,7 @@ func IsValidRoleName(role string) bool {
 	return regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]+[a-zA-Z0-9]$`).MatchString(role) && len(role) > 0 && len(role) <= 255
 }
 
-func LoadDbFromFile(db *sql.DB, fname string) error {
+func LoadDbFromFile(db *SqliteDB, fname string) error {
 	policy_set, err := LoadRolePolicies(fname)
 	if err != nil {
 		return err
@@ -208,33 +206,26 @@ func LoadDbFromFile(db *sql.DB, fname string) error {
 // task, but it's easier to implement.
 //
 // Returns an error if the role does not exist.
-func GetPolicy(db *sql.DB, role string) (Policy, error) {
+func GetPolicy(db *SqliteDB, role string) (Policy, error) {
 	// First, confirm the role exists
-	rows, err := db.Query("select role from roles where role = ?", role)
+	rows, err := db.Select("select role from roles where role = ?", role)
 	if err != nil {
 		return Policy{}, err
 	}
-	if !rows.Next() {
-		rows.Close()
-		return Policy{}, fmt.Errorf("role `%s` does not exist", role)
+	if len(rows) != 1 {
+		return Policy{}, fmt.Errorf("%w: role `%s` does not exist", NoSuchRole, role)
 	}
-	rows.Close()
 
 	// Now return the role data
-	rows, err = db.Query("select distinct control_column from policies where role = ?", role)
+	rows, err = db.Select("select distinct control_column from policies where role = ?", role)
 	if err != nil {
 		return Policy{}, err
 	}
-	var control_columns []string
-	for rows.Next() {
-		var column string
-		if err = rows.Scan(&column); err != nil {
-			rows.Close()
-			return Policy{}, err
-		}
-		control_columns = append(control_columns, column)
+	control_columns := []string{}
+	for _, row := range rows {
+		// TODO: get rid of type assertions if possible
+		control_columns = append(control_columns, row["control_column"].(string))
 	}
-	rows.Close()
 	policy := Policy{Role: role}
 	for _, cc := range control_columns {
 		pi, err := GetPolicyItem(db, role, cc)
@@ -247,21 +238,17 @@ func GetPolicy(db *sql.DB, role string) (Policy, error) {
 }
 
 // Return a PolicyItem for this role and control column
-func GetPolicyItem(db *sql.DB, role, column string) (PolicyItem, error) {
+func GetPolicyItem(db *SqliteDB, role, column string) (PolicyItem, error) {
 	var column_values []string
-	rows, err := db.Query("select value from policies where role = ? and control_column = ?", role, column)
+	rows, err := db.Select("select value from policies where role = ? and control_column = ?", role, column)
 	if err != nil {
 		return PolicyItem{}, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var v string
-		if err = rows.Scan(&v); err != nil {
-			return PolicyItem{}, err
-		}
-		column_values = append(column_values, v)
+	column_values = []string{}
+	for _, val := range rows {
+		column_values = append(column_values, val["value"].(string))
 	}
-	// If there are no values, return an empty policy item
+
 	if len(column_values) == 0 {
 		return PolicyItem{}, nil
 	}

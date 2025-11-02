@@ -68,7 +68,7 @@ func TestSqliteSetupWorks(t *testing.T) {
 
 func TestSqliteSetupTruncatesExistingTables(t *testing.T) {
 	// Create table ahead of time and add some rows to it
-	db := getInitializedDbHandle(t)
+	db := getRawInitializedDbHandle(t)
 	defer db.Close()
 
 	if _, err := db.Exec(
@@ -286,5 +286,28 @@ func getSqliteDBWithData(t *testing.T, connect string) SqliteDB {
 	); err != nil {
 		t.Fatal(err)
 	}
+	return db
+}
+
+func getRawInitializedDbHandle(t *testing.T) *sql.DB {
+	var err error
+	var db *sql.DB
+	db, err = sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = db.Ping(); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := db.Exec(`
+	create table if not exists policies(role varchar, control_column varchar, value varchar);
+	delete from policies;
+	create table if not exists roles(role varchar unique);
+	delete from roles;`); err != nil {
+		t.Fatal(err)
+	}
+
 	return db
 }
