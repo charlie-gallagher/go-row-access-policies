@@ -23,6 +23,17 @@ type SqliteDB struct {
 	handle *sql.DB
 }
 
+// SqliteDB implements the AccessDB interface
+var _ AccessDB = &SqliteDB{}
+
+// Create a new SqliteDB instance
+//
+// The connect string is passed to the sql.Open function to create a new database
+// connection. It is either a file path or a ":memory:" string to create an
+// in-memory database.
+//
+// Returns a new SqliteDB instance and an error if the database connection
+// fails. Automatically pings the database to ensure it is connected.
 func NewSqliteDB(connect string) (SqliteDB, error) {
 	var err error
 	var db *sql.DB
