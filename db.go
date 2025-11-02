@@ -85,7 +85,7 @@ func (db *SqliteDB) SelectOne(query string, args ...any) (map[string]any, error)
 	defer rows.Close()
 
 	if !rows.Next() {
-		return map[string]any{}, fmt.Errorf("no rows returned")
+		return map[string]any{}, sql.ErrNoRows
 	}
 
 	// Populate an N-slice with the values

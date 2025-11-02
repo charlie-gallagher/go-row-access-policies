@@ -1,6 +1,8 @@
 package main
 
 import (
+	"database/sql"
+	"errors"
 	"slices"
 	"testing"
 )
@@ -139,6 +141,24 @@ func TestSqliteSelectOneWorks(t *testing.T) {
 		} else if got != want {
 			t.Errorf("wanted: %s, got: %s", want, got)
 		}
+	}
+}
+
+func TestSqliteSelectOneThrowsForNoRows(t *testing.T) {
+	db := getSetupSqliteDB(t, ":memory:")
+
+	// Load some data
+	if err := db.Exec(
+		`insert into policies (role, control_column, value) values (?, ?, ?);`,
+		"admin", "Region", "Southern",
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	// Query for data and inspect result
+	_, err := db.SelectOne("select role, control_column, value from policies where role = ?", "not_a_role")
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Error("expected no rows error")
 	}
 }
 
