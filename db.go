@@ -124,3 +124,45 @@ func (db *SqliteDB) SelectOne(query string, args ...any) (map[string]any, error)
 
 	return rowMap, nil
 }
+
+func (db *SqliteDB) Select(query string, args ...any) ([]map[string]any, error) {
+	rows, err := db.handle.Query(query, args...)
+	if err != nil {
+		return []map[string]any{}, err
+	}
+	defer rows.Close()
+
+	// Populate an N-slice with the values
+	columns, err := rows.Columns()
+	if err != nil {
+		return []map[string]any{}, err
+	}
+
+	out := []map[string]any{}
+	for rows.Next() {
+		// Populate an N-slice using slice of pointers to any
+		row := make([]any, len(columns))
+		rowPtrs := make([]any, len(columns))
+		for i := range row {
+			rowPtrs[i] = &row[i]
+		}
+		if err := rows.Scan(rowPtrs...); err != nil {
+			return []map[string]any{}, err
+		}
+
+		// Construct a map of column name to value
+		rowMap := make(map[string]any)
+		for i, col := range columns {
+			value := row[i]
+
+			if b, ok := value.([]byte); ok {
+				rowMap[col] = string(b)
+			} else {
+				rowMap[col] = value
+			}
+		}
+		out = append(out, rowMap)
+	}
+
+	return out, nil
+}

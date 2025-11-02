@@ -122,7 +122,6 @@ func TestSqliteSelectOneWorks(t *testing.T) {
 	}
 
 	// Query for data and inspect result
-	// want_map := row{Role: "admin", ControlColumn: "Region", Value: "Southern"}
 	want_map := map[string]string{
 		"role":           "admin",
 		"control_column": "Region",
@@ -183,6 +182,108 @@ func TestSqliteSelectOneThrowsForTwoRows(t *testing.T) {
 	_, err := db.SelectOne("select role, control_column, value from policies where control_column = ?", "Region")
 	if !errors.Is(err, ErrTooManyRows) {
 		t.Error("expected too many rows error")
+	}
+}
+
+func TestSqliteSelectWorksForNoRows(t *testing.T) {
+	db := getSetupSqliteDB(t, ":memory:")
+
+	got_result, err := db.Select("select role, control_column, value from policies")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got_result) != 0 {
+		t.Errorf("expected no rows, got %v", got_result)
+	}
+}
+
+func TestSqliteSelectWorksForOneRow(t *testing.T) {
+	db := getSetupSqliteDB(t, ":memory:")
+
+	// Load some data
+	if err := db.Exec(
+		`insert into policies (role, control_column, value) values (?, ?, ?);`,
+		"admin", "Region", "Southern",
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	// Query for data and inspect result
+	want_result := []map[string]string{{
+		"role":           "admin",
+		"control_column": "Region",
+		"value":          "Southern",
+	}}
+	got_result, err := db.Select("select role, control_column, value from policies where role = ?", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want_map := want_result[0]
+	got_map := got_result[0]
+	keys := []string{"role", "control_column", "value"}
+	for _, key := range keys {
+		want := want_map[key]
+		got, ok := got_map[key]
+		if !ok {
+			t.Errorf("Expected column %s but didn't find it", key)
+		} else if got != want {
+			t.Errorf("wanted: %s, got: %s", want, got)
+		}
+	}
+}
+
+func TestSqliteSelectWorksForRows(t *testing.T) {
+	db := getSetupSqliteDB(t, ":memory:")
+
+	// Load some data
+	if err := db.Exec(
+		`insert into policies (role, control_column, value) values (?, ?, ?);`,
+		"admin", "Region", "Southern",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(
+		`insert into policies (role, control_column, value) values (?, ?, ?);`,
+		"employee", "Region", "Eastern",
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	// Query for data and inspect result
+	want_result := []map[string]string{
+		{
+			"role":           "admin",
+			"control_column": "Region",
+			"value":          "Southern",
+		},
+		{
+			"role":           "employee",
+			"control_column": "Region",
+			"value":          "Eastern",
+		},
+	}
+	got_result, err := db.Select("select role, control_column, value from policies where control_column = ?", "Region")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(got_result) != 2 {
+		t.Fatalf("Want length 2, got %d", len(got_result))
+	}
+
+	for i := range want_result {
+		want_map := want_result[i]
+		got_map := got_result[i]
+		keys := []string{"role", "control_column", "value"}
+		for _, key := range keys {
+			want := want_map[key]
+			got, ok := got_map[key]
+			if !ok {
+				t.Errorf("Expected column %s but didn't find it", key)
+			} else if got != want {
+				t.Errorf("wanted: %s, got: %s", want, got)
+			}
+		}
 	}
 }
 
