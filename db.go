@@ -12,8 +12,8 @@ type AccessDB interface {
 	ListTables() ([]string, error)
 	Setup() error
 	Exec(stmt string, args ...any) error
-	SelectOne(query string, dest any, args ...any) error
-	Select(query string, args ...any) (any, error)
+	SelectOne(query string, args ...any) (map[string]any, error)
+	Select(query string, args ...any) ([]map[string]any, error)
 }
 
 // Default instance of AccessDb is a SqliteDB
@@ -75,4 +75,43 @@ func (db *SqliteDB) Exec(stmt string, args ...any) error {
 		return err
 	}
 	return nil
+}
+
+func (db *SqliteDB) SelectOne(query string, args ...any) (map[string]any, error) {
+	rows, err := db.handle.Query(query, args...)
+	if err != nil {
+		return map[string]any{}, err
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return map[string]any{}, fmt.Errorf("no rows returned")
+	}
+
+	// Populate an N-slice with the values
+	columns, err := rows.Columns()
+	if err != nil {
+		return map[string]any{}, err
+	}
+	row := make([]any, len(columns))
+	rowPtrs := make([]any, len(columns))
+	for i := range row {
+		rowPtrs[i] = &row[i]
+	}
+	if err := rows.Scan(rowPtrs...); err != nil {
+		return map[string]any{}, err
+	}
+
+	// Construct a map of column name to value
+	rowMap := make(map[string]any)
+	for i, col := range columns {
+		value := row[i]
+
+		if b, ok := value.([]byte); ok {
+			rowMap[col] = string(b)
+		} else {
+			rowMap[col] = value
+		}
+	}
+	return rowMap, nil
 }

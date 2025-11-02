@@ -108,6 +108,40 @@ func TestSqliteExecWorks(t *testing.T) {
 	}
 }
 
+func TestSqliteSelectOneWorks(t *testing.T) {
+	db := getSetupSqliteDB(t, ":memory:")
+
+	// Load some data
+	if err := db.Exec(
+		`insert into policies (role, control_column, value) values (?, ?, ?);`,
+		"admin", "Region", "Southern",
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	// Query for data and inspect result
+	// want_map := row{Role: "admin", ControlColumn: "Region", Value: "Southern"}
+	want_map := map[string]string{
+		"role":           "admin",
+		"control_column": "Region",
+		"value":          "Southern",
+	}
+	got_map, err := db.SelectOne("select role, control_column, value from policies where role = ?", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := []string{"role", "control_column", "value"}
+	for _, key := range keys {
+		want := want_map[key]
+		got, ok := got_map[key]
+		if !ok {
+			t.Errorf("Expected column %s but didn't find it", key)
+		} else if got != want {
+			t.Errorf("wanted: %s, got: %s", want, got)
+		}
+	}
+}
+
 func getNewSqliteDB(t *testing.T, connect string) SqliteDB {
 	t.Helper()
 	db, err := NewSqliteDB(connect)
