@@ -162,6 +162,30 @@ func TestSqliteSelectOneThrowsForNoRows(t *testing.T) {
 	}
 }
 
+func TestSqliteSelectOneThrowsForTwoRows(t *testing.T) {
+	db := getSetupSqliteDB(t, ":memory:")
+
+	// Load some data
+	if err := db.Exec(
+		`insert into policies (role, control_column, value) values (?, ?, ?);`,
+		"admin", "Region", "Southern",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(
+		`insert into policies (role, control_column, value) values (?, ?, ?);`,
+		"employee", "Region", "Eastern",
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	// Query for data and inspect result
+	_, err := db.SelectOne("select role, control_column, value from policies where control_column = ?", "Region")
+	if !errors.Is(err, ErrTooManyRows) {
+		t.Error("expected too many rows error")
+	}
+}
+
 func getNewSqliteDB(t *testing.T, connect string) SqliteDB {
 	t.Helper()
 	db, err := NewSqliteDB(connect)

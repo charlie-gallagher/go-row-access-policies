@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	_ "modernc.org/sqlite"
@@ -15,6 +16,8 @@ type AccessDB interface {
 	SelectOne(query string, args ...any) (map[string]any, error)
 	Select(query string, args ...any) ([]map[string]any, error)
 }
+
+var ErrTooManyRows = errors.New("expected 1 row")
 
 // Default instance of AccessDb is a SqliteDB
 type SqliteDB struct {
@@ -102,6 +105,11 @@ func (db *SqliteDB) SelectOne(query string, args ...any) (map[string]any, error)
 		return map[string]any{}, err
 	}
 
+	// Check if there are any other rows
+	if rows.Next() {
+		return map[string]any{}, ErrTooManyRows
+	}
+
 	// Construct a map of column name to value
 	rowMap := make(map[string]any)
 	for i, col := range columns {
@@ -113,5 +121,6 @@ func (db *SqliteDB) SelectOne(query string, args ...any) (map[string]any, error)
 			rowMap[col] = value
 		}
 	}
+
 	return rowMap, nil
 }
