@@ -111,15 +111,7 @@ func TestSqliteExecWorks(t *testing.T) {
 }
 
 func TestSqliteSelectOneWorks(t *testing.T) {
-	db := getSetupSqliteDB(t, ":memory:")
-
-	// Load some data
-	if err := db.Exec(
-		`insert into policies (role, control_column, value) values (?, ?, ?);`,
-		"admin", "Region", "Southern",
-	); err != nil {
-		t.Fatal(err)
-	}
+	db := getSqliteDBWithData(t, ":memory:")
 
 	// Query for data and inspect result
 	want_map := map[string]string{
@@ -144,15 +136,7 @@ func TestSqliteSelectOneWorks(t *testing.T) {
 }
 
 func TestSqliteSelectOneThrowsForNoRows(t *testing.T) {
-	db := getSetupSqliteDB(t, ":memory:")
-
-	// Load some data
-	if err := db.Exec(
-		`insert into policies (role, control_column, value) values (?, ?, ?);`,
-		"admin", "Region", "Southern",
-	); err != nil {
-		t.Fatal(err)
-	}
+	db := getSqliteDBWithData(t, ":memory:")
 
 	// Query for data and inspect result
 	_, err := db.SelectOne("select role, control_column, value from policies where role = ?", "not_a_role")
@@ -162,21 +146,7 @@ func TestSqliteSelectOneThrowsForNoRows(t *testing.T) {
 }
 
 func TestSqliteSelectOneThrowsForTwoRows(t *testing.T) {
-	db := getSetupSqliteDB(t, ":memory:")
-
-	// Load some data
-	if err := db.Exec(
-		`insert into policies (role, control_column, value) values (?, ?, ?);`,
-		"admin", "Region", "Southern",
-	); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Exec(
-		`insert into policies (role, control_column, value) values (?, ?, ?);`,
-		"employee", "Region", "Eastern",
-	); err != nil {
-		t.Fatal(err)
-	}
+	db := getSqliteDBWithData(t, ":memory:")
 
 	// Query for data and inspect result
 	_, err := db.SelectOne("select role, control_column, value from policies where control_column = ?", "Region")
@@ -198,15 +168,7 @@ func TestSqliteSelectWorksForNoRows(t *testing.T) {
 }
 
 func TestSqliteSelectWorksForOneRow(t *testing.T) {
-	db := getSetupSqliteDB(t, ":memory:")
-
-	// Load some data
-	if err := db.Exec(
-		`insert into policies (role, control_column, value) values (?, ?, ?);`,
-		"admin", "Region", "Southern",
-	); err != nil {
-		t.Fatal(err)
-	}
+	db := getSqliteDBWithData(t, ":memory:")
 
 	// Query for data and inspect result
 	want_result := []map[string]string{{
@@ -233,21 +195,7 @@ func TestSqliteSelectWorksForOneRow(t *testing.T) {
 }
 
 func TestSqliteSelectWorksForRows(t *testing.T) {
-	db := getSetupSqliteDB(t, ":memory:")
-
-	// Load some data
-	if err := db.Exec(
-		`insert into policies (role, control_column, value) values (?, ?, ?);`,
-		"admin", "Region", "Southern",
-	); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Exec(
-		`insert into policies (role, control_column, value) values (?, ?, ?);`,
-		"employee", "Region", "Eastern",
-	); err != nil {
-		t.Fatal(err)
-	}
+	db := getSqliteDBWithData(t, ":memory:")
 
 	// Query for data and inspect result
 	want_result := []map[string]string{
@@ -301,6 +249,29 @@ func getSetupSqliteDB(t *testing.T, connect string) SqliteDB {
 	db := getNewSqliteDB(t, connect)
 	if err := db.Setup(); err != nil {
 		t.Fatalf("could not set up db: %v", err)
+	}
+	return db
+}
+
+// Get a SqliteDB with some data in it
+//
+// Creates a new, initialized SqliteDB and adds two rows to to the policies table.
+// There is one row for the admin role and one row for the employee role. Both
+// rows apply to the Region control column.
+func getSqliteDBWithData(t *testing.T, connect string) SqliteDB {
+	t.Helper()
+	db := getSetupSqliteDB(t, connect)
+	if err := db.Exec(
+		`insert into policies (role, control_column, value) values (?, ?, ?);`,
+		"admin", "Region", "Southern",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(
+		`insert into policies (role, control_column, value) values (?, ?, ?);`,
+		"employee", "Region", "Eastern",
+	); err != nil {
+		t.Fatal(err)
 	}
 	return db
 }
