@@ -13,6 +13,7 @@ type AccessDB interface {
 	ListTables() ([]string, error)
 	Setup() error
 	Exec(stmt string, args ...any) error
+	Prepare(query string) (*sql.Stmt, error)
 	SelectOne(query string, args ...any) (map[string]any, error)
 	Select(query string, args ...any) ([]map[string]any, error)
 }
@@ -166,4 +167,8 @@ func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) ([]map[string]
 	}
 
 	return out, nil
+}
+
+func (db *SqliteDB) Prepare(query string) (*sql.Stmt, error) {
+	return db.handle.Prepare(query)
 }

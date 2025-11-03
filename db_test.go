@@ -248,6 +248,38 @@ func TestSqliteSelectWorksForRows(t *testing.T) {
 	}
 }
 
+func TestSqlitePreparedStatementWorks(t *testing.T) {
+	db := getSetupSqliteDB(t, ":memory:")
+	defer db.Close()
+
+	// Execute bulk statement
+	stmt, err := db.Prepare("insert into roles (role) values (?)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stmt.Close()
+
+	roles := []string{"a", "b", "c"}
+	for _, role := range roles {
+		if _, err := stmt.Exec(role); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Confirm data was written
+	result, err := db.Select("select role from roles order by role")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got_roles := []string{}
+	for _, v := range result {
+		got_roles = append(got_roles, v["role"].(string))
+	}
+	if !slices.Equal(roles, got_roles) {
+		t.Errorf("want: %v, got: %v", roles, got_roles)
+	}
+}
+
 func getNewSqliteDB(t *testing.T, connect string) SqliteDB {
 	t.Helper()
 	db, err := NewSqliteDB(connect)
