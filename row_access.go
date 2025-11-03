@@ -122,6 +122,11 @@ func DbAlreadyInitialized(db *SqliteDB) bool {
 
 // Load the database with policies from the config
 func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
+	insert_statement, err := db.Prepare("insert into policies (role, control_column, value) values (?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer insert_statement.Close()
 	for _, role_policy := range policy_set.Policies {
 		// First, add role to `roles` table, if not already there
 		was_created, err := tryAddRoleToRolesTable(db, role_policy.Role)
@@ -142,9 +147,7 @@ func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
 			}
 			// Otherwise, insert the policies
 			for _, value := range policy_item.Values {
-				if err := db.Exec(`
-					insert into policies (role, control_column, value) values (?, ?, ?);
-					`, role_policy.Role, policy_item.Column, value); err != nil {
+				if _, err := insert_statement.Exec(role_policy.Role, policy_item.Column, value); err != nil {
 					return err
 				}
 			}
