@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -122,21 +123,32 @@ func DbAlreadyInitialized(db *SqliteDB) bool {
 
 // Load the database with policies from the config
 func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
-	insert_statement, err := db.Prepare("insert into policies (role, control_column, value) values (?, ?, ?)")
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	insert_statement, err := tx.Prepare("insert into policies (role, control_column, value) values (?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer insert_statement.Close()
 	for _, role_policy := range policy_set.Policies {
-		// First, add role to `roles` table, if not already there
-		was_created, err := tryAddRoleToRolesTable(db, role_policy.Role)
+		role_exists, err := doesRoleExist(tx, role_policy.Role)
 		if err != nil {
 			return err
 		}
 
-		// If the role already exists, truncate all of its policies
-		if !was_created {
-			if err := db.Exec("delete from policies where role = ?", role_policy.Role); err != nil {
+		if !role_exists {
+			_, err = tx.Exec("insert into roles (role) values (?)", role_policy.Role)
+			if err != nil {
+				return err
+			}
+		}
+
+		// If the role exists, overwrite it
+		if role_exists {
+			if _, err := tx.Exec("delete from policies where role = ?", role_policy.Role); err != nil {
 				return err
 			}
 		}
@@ -154,31 +166,28 @@ func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
 		}
 	}
 
+	if err := tx.Commit(); err != nil {
+		return err
+	}
 	return nil
 }
 
-// Try to add role to roles table
-//
-// Returns bool indicating if role was added to table (false=existed beforehand)
-func tryAddRoleToRolesTable(db *SqliteDB, role string) (bool, error) {
+// Does role already exist in roles table
+func doesRoleExist(tx *sql.Tx, role string) (bool, error) {
 	// Validate role name
 	if !IsValidRoleName(role) {
 		return false, fmt.Errorf("invalid role name: %s", role)
 	}
 	// Check if role already exists
-	rows, err := db.Select("select role from roles where role = ?", role)
+	rows, err := tx.Query("select role from roles where role = ?", role)
 	if err != nil {
 		return false, err
 	}
-	if len(rows) == 1 {
-		return false, nil
+	defer rows.Close()
+	if rows.Next() {
+		return true, nil
 	}
-	// Add role to table
-	err = db.Exec("insert into roles (role) values (?)", role)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	return false, nil
 }
 
 // Return true if the role name is valid, false otherwise

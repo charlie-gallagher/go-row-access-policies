@@ -288,6 +288,7 @@ func TestSqliteBeginCommits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin: %v", err)
 	}
+	defer tx.Rollback()
 	if _, err := tx.Exec("insert into roles (role) values (?)", "new_role"); err != nil {
 		t.Fatalf("exec: %v", err)
 	}
@@ -314,6 +315,7 @@ func TestSqliteBeginRollsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin: %v", err)
 	}
+	defer tx.Rollback()
 	if _, err := tx.Exec("insert into roles (role) values (?)", "new_role"); err != nil {
 		t.Fatalf("exec: %v", err)
 	}

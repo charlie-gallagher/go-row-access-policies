@@ -71,13 +71,19 @@ func (db *SqliteDB) ListTables() ([]string, error) {
 }
 
 func (db *SqliteDB) Setup() error {
-	if _, err := db.handle.Exec(`
+	tx, err := db.handle.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`
 	create table if not exists policies(role varchar, control_column varchar, value varchar);
 	delete from policies;
 	create table if not exists roles(role varchar unique);
 	delete from roles;`); err != nil {
 		return err
 	}
+	tx.Commit()
 	return nil
 }
 

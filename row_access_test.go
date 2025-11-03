@@ -130,14 +130,12 @@ func TestDbLoadAddsToDatabase_ManuallyRetrieved(t *testing.T) {
 		t.Fatalf("Error loading db with policies: %v\n", err)
 	}
 	// Verify the value "one" is in the policies table
-	var value string
-	value = fetchOneRow(t, db, "select value from policies where role = 'admin' and control_column = 'Region'")["value"].(string)
+	value := fetchOneRow(t, db, "select value from policies where role = 'admin' and control_column = 'Region'")["value"].(string)
 	if value != "one" {
 		t.Errorf("Value mismatch: got %s, want %s\n", value, "one")
 	}
 	// Verify the role "admin" is in the roles table
-	var role string
-	role = fetchOneRow(t, db, "select role from roles where role = 'admin'")["role"].(string)
+	role := fetchOneRow(t, db, "select role from roles where role = 'admin'")["role"].(string)
 	if role != "admin" {
 		t.Errorf("Role mismatch: got %s, want %s\n", role, "admin")
 	}
