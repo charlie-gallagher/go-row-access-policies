@@ -280,6 +280,58 @@ func TestSqlitePreparedStatementWorks(t *testing.T) {
 	}
 }
 
+func TestSqliteBeginCommits(t *testing.T) {
+	db := getSetupSqliteDB(t, ":memory:")
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if _, err := tx.Exec("insert into roles (role) values (?)", "new_role"); err != nil {
+		t.Fatalf("exec: %v", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+
+	result, err := db.Select("select role from roles")
+	if err != nil {
+		t.Fatalf("select: %v", err)
+	}
+
+	if len(result) != 1 {
+		t.Errorf("expected 1 rows, got %d", len(result))
+	}
+}
+
+func TestSqliteBeginRollsBack(t *testing.T) {
+	db := getSetupSqliteDB(t, ":memory:")
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if _, err := tx.Exec("insert into roles (role) values (?)", "new_role"); err != nil {
+		t.Fatalf("exec: %v", err)
+	}
+
+	if err = tx.Rollback(); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+
+	result, err := db.Select("select role from roles")
+	if err != nil {
+		t.Fatalf("select: %v", err)
+	}
+
+	if len(result) != 0 {
+		t.Errorf("expected 0 rows, got %d", len(result))
+	}
+}
+
 func getNewSqliteDB(t *testing.T, connect string) SqliteDB {
 	t.Helper()
 	db, err := NewSqliteDB(connect)
