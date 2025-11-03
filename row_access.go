@@ -15,7 +15,7 @@ import (
 
 const json_schema_fname = "config_schema.json"
 
-var NoSuchRole = errors.New("no such role")
+var ErrNoSuchRole = errors.New("no such role")
 
 type PolicySet struct {
 	Policies []Policy `json:"policies"`
@@ -213,7 +213,7 @@ func GetPolicy(db *SqliteDB, role string) (Policy, error) {
 		return Policy{}, err
 	}
 	if len(rows) != 1 {
-		return Policy{}, fmt.Errorf("%w: role `%s` does not exist", NoSuchRole, role)
+		return Policy{}, fmt.Errorf("%w: role `%s` does not exist", ErrNoSuchRole, role)
 	}
 
 	// Now return the role data
