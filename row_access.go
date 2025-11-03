@@ -100,13 +100,6 @@ func ValidateConfig(data []byte) error {
 	return nil
 }
 
-func InitDb(db *SqliteDB) error {
-	if err := db.Setup(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func DbAlreadyInitialized(db *SqliteDB) bool {
 	tables, err := db.ListTables()
 	if err != nil {

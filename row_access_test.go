@@ -103,7 +103,7 @@ func TestValidateConfigFails(t *testing.T) {
 func TestDbInitWorks(t *testing.T) {
 	t.Run("InitDb works", func(t *testing.T) {
 		db := getDbHandle(t)
-		if err := InitDb(db); err != nil {
+		if err := db.Setup(); err != nil {
 			t.Fatalf("Error initializing db: %v\n", err)
 		}
 	})
@@ -367,7 +367,7 @@ func getInvalidRoleName() string {
 func getInitializedDbHandle(t *testing.T) *SqliteDB {
 	t.Helper()
 	db := getDbHandle(t)
-	if err := InitDb(db); err != nil {
+	if err := db.Setup(); err != nil {
 		db.Close()
 		t.Fatalf("Error initializing db: %v\n", err)
 	}

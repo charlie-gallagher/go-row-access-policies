@@ -147,7 +147,7 @@ func main() {
 			os.Exit(1)
 		}
 		if db_initialized := DbAlreadyInitialized(db); !db_initialized {
-			if err = InitDb(db); err != nil {
+			if err = db.Setup(); err != nil {
 				fmt.Fprintln(os.Stderr, "error: initializing db:", err)
 				os.Exit(1)
 			}
