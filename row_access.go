@@ -174,11 +174,9 @@ func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
 
 // Does role already exist in roles table
 func doesRoleExist(tx *sql.Tx, role string) (bool, error) {
-	// Validate role name
 	if !IsValidRoleName(role) {
 		return false, fmt.Errorf("invalid role name: %s", role)
 	}
-	// Check if role already exists
 	rows, err := tx.Query("select role from roles where role = ?", role)
 	if err != nil {
 		return false, err
@@ -235,7 +233,6 @@ func GetPolicy(db *SqliteDB, role string) (Policy, error) {
 	}
 	control_columns := []string{}
 	for _, row := range rows {
-		// TODO: get rid of type assertions if possible
 		control_columns = append(control_columns, row["control_column"].(string))
 	}
 	policy := Policy{Role: role}
