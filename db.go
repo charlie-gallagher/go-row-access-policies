@@ -26,6 +26,12 @@ type SqliteDB struct {
 	handle *sql.DB
 }
 
+type AccessResult struct {
+	Data        []map[string]any
+	Columns     []string
+	ColumnTypes []*sql.ColumnType
+}
+
 // SqliteDB implements the AccessDB interface
 var _ AccessDB = &SqliteDB{}
 
@@ -105,7 +111,7 @@ func (db *SqliteDB) SelectOne(query string, args ...any) (map[string]any, error)
 	if err != nil {
 		return map[string]any{}, err
 	}
-	return all_rows[0], nil
+	return all_rows.Data[0], nil
 }
 
 func (db *SqliteDB) Select(query string, args ...any) ([]map[string]any, error) {
@@ -120,14 +126,14 @@ func (db *SqliteDB) Select(query string, args ...any) ([]map[string]any, error) 
 		return []map[string]any{}, err
 	}
 
-	return out, nil
+	return out.Data, nil
 }
 
-func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) ([]map[string]any, error) {
+func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) (*AccessResult, error) {
 	// Populate an N-slice with the values
 	columns, err := rows.Columns()
 	if err != nil {
-		return []map[string]any{}, err
+		return nil, err
 	}
 
 	n_rows := 0
@@ -137,7 +143,7 @@ func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) ([]map[string]
 
 		// Check if we've exceeded the maximum number of rows
 		if n_rows > maxRows {
-			return []map[string]any{}, fmt.Errorf("%w: expected at most %d rows, got %d", ErrTooManyRows, maxRows, n_rows)
+			return nil, fmt.Errorf("%w: expected at most %d rows, got %d", ErrTooManyRows, maxRows, n_rows)
 		}
 
 		// Populate an N-slice using slice of pointers to any
@@ -147,7 +153,7 @@ func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) ([]map[string]
 			rowPtrs[i] = &row[i]
 		}
 		if err := rows.Scan(rowPtrs...); err != nil {
-			return []map[string]any{}, err
+			return nil, err
 		}
 
 		// Construct a map of column name to value
@@ -165,15 +171,15 @@ func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) ([]map[string]
 	}
 
 	if n_rows == 0 && minRows > 0 {
-		return []map[string]any{}, fmt.Errorf("%w: expected at least %d rows, got %d", sql.ErrNoRows, minRows, n_rows)
+		return nil, fmt.Errorf("%w: expected at least %d rows, got %d", sql.ErrNoRows, minRows, n_rows)
 	}
 
 	// Check if we've satisfied the minimum number of rows
 	if n_rows < minRows {
-		return []map[string]any{}, fmt.Errorf("expected at least %d rows, got %d", minRows, n_rows)
+		return nil, fmt.Errorf("expected at least %d rows, got %d", minRows, n_rows)
 	}
 
-	return out, nil
+	return &AccessResult{Data: out, Columns: columns, ColumnTypes: nil}, nil
 }
 
 func (db *SqliteDB) Prepare(query string) (*sql.Stmt, error) {
