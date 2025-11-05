@@ -3,6 +3,9 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"log"
+	"reflect"
 	"slices"
 	"testing"
 )
@@ -334,6 +337,77 @@ func TestSqliteBeginRollsBack(t *testing.T) {
 	}
 }
 
+// This is a scratch test for experimenting with column types
+func TestScratchTestForColumnTypes(t *testing.T) {
+	sqlite_db := getSqliteDBWithData(t, ":memory:")
+	defer sqlite_db.Close()
+
+	db := sqlite_db.handle
+	rows, err := db.Query("select * from policies")
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	defer rows.Close()
+
+	// Playground
+	columns, err := rows.Columns()
+	if err != nil {
+		t.Fatalf("columns: %v", err)
+	}
+	_ = columns
+	column_types, err := rows.ColumnTypes()
+	if err != nil {
+		t.Fatalf("column types: %v", err)
+	}
+	_ = column_types
+
+	types := make([]reflect.Type, len(column_types))
+	for i, tp := range column_types {
+		st := tp.ScanType()
+		if st == nil {
+			log.Printf("warning: ScanType is null for column %q", tp.Name())
+			continue
+		}
+		types[i] = st
+	}
+
+	for rows.Next() {
+		values := make([]any, len(column_types))
+		for i := range values {
+			values[i] = reflect.New(types[i]).Interface()
+		}
+		err = rows.Scan(values...)
+		if err != nil {
+			t.Errorf("scan: %v\n", err)
+		}
+		for i := range values {
+			val := reflect.ValueOf(values[i])
+			// This should always be true for db results
+			if val.Kind() == reflect.Ptr {
+				val = val.Elem()
+			}
+
+			// Get the underlying value and convert to string
+			var str string
+			switch val.Kind() {
+			case reflect.String:
+				str = val.String()
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				str = fmt.Sprintf("%d", val.Int())
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				str = fmt.Sprintf("%d", val.Uint())
+			case reflect.Float32, reflect.Float64:
+				str = fmt.Sprintf("%f", val.Float())
+			case reflect.Bool:
+				str = fmt.Sprintf("%t", val.Bool())
+			default:
+				str = fmt.Sprintf("%v", val.Interface())
+			}
+			log.Printf("%s\n", str)
+		}
+	}
+}
+
 func getNewSqliteDB(t *testing.T, connect string) SqliteDB {
 	t.Helper()
 	db, err := NewSqliteDB(connect)
@@ -360,6 +434,7 @@ func getSetupSqliteDB(t *testing.T, connect string) SqliteDB {
 func getSqliteDBWithData(t *testing.T, connect string) SqliteDB {
 	t.Helper()
 	db := getSetupSqliteDB(t, connect)
+	// TODO: use prepared statement
 	if err := db.Exec(
 		`insert into policies (role, control_column, value) values (?, ?, ?);`,
 		"admin", "Region", "Southern",

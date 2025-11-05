@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
+	"reflect"
 
 	_ "modernc.org/sqlite"
 )
@@ -27,9 +29,8 @@ type SqliteDB struct {
 }
 
 type AccessResult struct {
-	Data        []map[string]any
-	Columns     []string
-	ColumnTypes []*sql.ColumnType
+	Data    []map[string]any
+	Columns []string
 }
 
 // SqliteDB implements the AccessDB interface
@@ -130,10 +131,25 @@ func (db *SqliteDB) Select(query string, args ...any) ([]map[string]any, error) 
 }
 
 func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) (*AccessResult, error) {
-	// Populate an N-slice with the values
+	// Get columns and their types
 	columns, err := rows.Columns()
 	if err != nil {
 		return nil, err
+	}
+	column_types, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the types of the columns
+	types := make([]reflect.Type, len(column_types))
+	for i, tp := range column_types {
+		st := tp.ScanType()
+		if st == nil {
+			log.Printf("warning: ScanType is null for column %q", tp.Name())
+			continue
+		}
+		types[i] = st
 	}
 
 	n_rows := 0
@@ -146,26 +162,26 @@ func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) (*AccessResult
 			return nil, fmt.Errorf("%w: expected at most %d rows, got %d", ErrTooManyRows, maxRows, n_rows)
 		}
 
-		// Populate an N-slice using slice of pointers to any
-		row := make([]any, len(columns))
-		rowPtrs := make([]any, len(columns))
-		for i := range row {
-			rowPtrs[i] = &row[i]
+		// Populate an N-slice using slice of pointers to the correct interface type
+		row_ptrs := make([]any, len(column_types))
+		for i := range row_ptrs {
+			row_ptrs[i] = reflect.New(types[i]).Interface()
 		}
-		if err := rows.Scan(rowPtrs...); err != nil {
-			return nil, err
+		err = rows.Scan(row_ptrs...)
+		if err != nil {
+			return nil, fmt.Errorf("scan: %w", err)
+		}
+
+		// The values are easier to work with as values, not pointers
+		row_values := make([]any, len(column_types))
+		for i := range row_values {
+			row_values[i] = reflect.ValueOf(row_ptrs[i]).Elem().Interface()
 		}
 
 		// Construct a map of column name to value
 		rowMap := make(map[string]any)
 		for i, col := range columns {
-			value := row[i]
-
-			if b, ok := value.([]byte); ok {
-				rowMap[col] = string(b)
-			} else {
-				rowMap[col] = value
-			}
+			rowMap[col] = row_values[i]
 		}
 		out = append(out, rowMap)
 	}
@@ -179,7 +195,7 @@ func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) (*AccessResult
 		return nil, fmt.Errorf("expected at least %d rows, got %d", minRows, n_rows)
 	}
 
-	return &AccessResult{Data: out, Columns: columns, ColumnTypes: nil}, nil
+	return &AccessResult{Data: out, Columns: columns}, nil
 }
 
 func (db *SqliteDB) Prepare(query string) (*sql.Stmt, error) {
