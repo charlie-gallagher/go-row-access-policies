@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 
 	_ "modernc.org/sqlite"
@@ -30,7 +29,13 @@ type SqliteDB struct {
 
 type AccessResult struct {
 	Data    []map[string]any
-	Columns []string
+	Columns []ColumnInfo
+}
+
+type ColumnInfo struct {
+	Name   string
+	DbType string
+	RType  reflect.Type
 }
 
 // SqliteDB implements the AccessDB interface
@@ -146,14 +151,19 @@ func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) (*AccessResult
 	for i, tp := range column_types {
 		st := tp.ScanType()
 		if st == nil {
-			log.Printf("warning: ScanType is null for column %q", tp.Name())
+			// This happens when no rows are returned. As a sanity check, if
+			// some rows were returned, be loud about it so I can investigate
+			// the issue further.
+			if rows.Next() {
+				return nil, fmt.Errorf("INTERNAL ERROR: ScanType is null for column %q but some rows were returned", tp.Name())
+			}
 			continue
 		}
 		types[i] = st
 	}
 
 	n_rows := 0
-	out := []map[string]any{}
+	db_data := []map[string]any{}
 	for rows.Next() {
 		n_rows++
 
@@ -183,7 +193,7 @@ func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) (*AccessResult
 		for i, col := range columns {
 			rowMap[col] = row_values[i]
 		}
-		out = append(out, rowMap)
+		db_data = append(db_data, rowMap)
 	}
 
 	if n_rows == 0 && minRows > 0 {
@@ -195,7 +205,17 @@ func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) (*AccessResult
 		return nil, fmt.Errorf("expected at least %d rows, got %d", minRows, n_rows)
 	}
 
-	return &AccessResult{Data: out, Columns: columns}, nil
+	out := newAccessResult(db_data, column_types)
+
+	return out, nil
+}
+
+func newAccessResult(db_data []map[string]any, column_types []*sql.ColumnType) *AccessResult {
+	col_info := make([]ColumnInfo, len(column_types))
+	for i, col := range column_types {
+		col_info[i] = ColumnInfo{Name: col.Name(), DbType: col.DatabaseTypeName(), RType: col.ScanType()}
+	}
+	return &AccessResult{Data: db_data, Columns: col_info}
 }
 
 func (db *SqliteDB) Prepare(query string) (*sql.Stmt, error) {
