@@ -121,31 +121,12 @@ func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
 	}
 	defer insert_statement.Close()
 	for _, role_policy := range policy_set.Policies {
-		role_id, err := getRoleIdTx(tx, role_policy.Role)
+
+		role_id, err := insertRoleTx(tx, role_policy.Role)
 		if err != nil {
 			return err
 		}
-		role_exists := role_id != -1
 
-		// TODO: Now that role_ids cascade delete, we could just delete the old
-		// role and insert the new one to truncate the policies table.
-		if !role_exists {
-			result, err := tx.Exec("insert into roles (role) values (?) returning id", role_policy.Role)
-			if err != nil {
-				return err
-			}
-			role_id, err = result.LastInsertId()
-			if err != nil {
-				return err
-			}
-		}
-
-		// If the role exists, overwrite it
-		if role_exists {
-			if _, err := tx.Exec("delete from policies where role_id = ?", role_id); err != nil {
-				return err
-			}
-		}
 		for _, policy_item := range role_policy.Policy {
 			// If the only policy item is __all__, then we don't need to insert any policies
 			if len(policy_item.Values) == 1 && policy_item.Values[0] == "__all__" {
@@ -164,6 +145,37 @@ func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
 		return err
 	}
 	return nil
+}
+
+// Insert the role and get the role_id.
+//
+// If the role already exists, it will be deleted along with all of its policies
+// (which are assumed to be old).
+func insertRoleTx(tx *sql.Tx, role string) (int64, error) {
+	role_id, err := getRoleIdTx(tx, role)
+	if err != nil {
+		return 0, err
+	}
+	role_exists := role_id != -1
+
+	// If role exists, delete it and all of its policies (via cascade)
+	if role_exists {
+		if _, err := tx.Exec("delete from roles where id = ?", role_id); err != nil {
+			return 0, err
+		}
+	}
+
+	// Now it's safe to insert the role
+	result, err := tx.Exec("insert into roles (role) values (?) returning id", role)
+	if err != nil {
+		return 0, err
+	}
+	role_id, err = result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return role_id, nil
 }
 
 // Does role already exist in roles table (transactional version)
