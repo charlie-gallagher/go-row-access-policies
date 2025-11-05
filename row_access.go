@@ -105,13 +105,7 @@ func DbAlreadyInitialized(db *SqliteDB) bool {
 	if err != nil {
 		return false
 	}
-	if len(tables) != 2 {
-		return false
-	}
-	if !slices.Equal(tables, []string{"policies", "roles"}) {
-		return false
-	}
-	return true
+	return slices.Contains(tables, "policies") && slices.Contains(tables, "roles")
 }
 
 // Load the database with policies from the config
@@ -121,19 +115,26 @@ func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
 		return err
 	}
 	defer tx.Rollback()
-	insert_statement, err := tx.Prepare("insert into policies (role, control_column, value) values (?, ?, ?)")
+	insert_statement, err := tx.Prepare("insert into policies (role_id, control_column, value) values (?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer insert_statement.Close()
 	for _, role_policy := range policy_set.Policies {
-		role_exists, err := doesRoleExist(tx, role_policy.Role)
+		role_id, err := getRoleIdTx(tx, role_policy.Role)
 		if err != nil {
 			return err
 		}
+		role_exists := role_id != -1
 
+		// TODO: Now that role_ids cascade delete, we could just delete the old
+		// role and insert the new one to truncate the policies table.
 		if !role_exists {
-			_, err = tx.Exec("insert into roles (role) values (?)", role_policy.Role)
+			result, err := tx.Exec("insert into roles (role) values (?) returning id", role_policy.Role)
+			if err != nil {
+				return err
+			}
+			role_id, err = result.LastInsertId()
 			if err != nil {
 				return err
 			}
@@ -141,7 +142,7 @@ func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
 
 		// If the role exists, overwrite it
 		if role_exists {
-			if _, err := tx.Exec("delete from policies where role = ?", role_policy.Role); err != nil {
+			if _, err := tx.Exec("delete from policies where role_id = ?", role_id); err != nil {
 				return err
 			}
 		}
@@ -152,7 +153,7 @@ func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
 			}
 			// Otherwise, insert the policies
 			for _, value := range policy_item.Values {
-				if _, err := insert_statement.Exec(role_policy.Role, policy_item.Column, value); err != nil {
+				if _, err := insert_statement.Exec(role_id, policy_item.Column, value); err != nil {
 					return err
 				}
 			}
@@ -165,20 +166,39 @@ func LoadDbWithPolicies(db *SqliteDB, policy_set *PolicySet) error {
 	return nil
 }
 
-// Does role already exist in roles table
-func doesRoleExist(tx *sql.Tx, role string) (bool, error) {
+// Does role already exist in roles table (transactional version)
+//
+// In SQLite, you can't make a query from SqliteDB.Select if you have a
+// transaction open (has to do with in-memory databases). Use this instead.
+func getRoleIdTx(tx *sql.Tx, role string) (int64, error) {
 	if !IsValidRoleName(role) {
-		return false, fmt.Errorf("invalid role name: %s", role)
+		return 0, fmt.Errorf("invalid role name: %s", role)
 	}
-	rows, err := tx.Query("select role from roles where role = ?", role)
+	rows, err := tx.Query("select id from roles where role = ?", role)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 	defer rows.Close()
 	if rows.Next() {
-		return true, nil
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return 0, err
+		}
+		return id, nil
 	}
-	return false, nil
+	return -1, nil
+}
+
+// Does role already exist in roles table (normal version)
+func getRoleIdDb(db *SqliteDB, role string) (int64, error) {
+	if !IsValidRoleName(role) {
+		return 0, fmt.Errorf("invalid role name: %s", role)
+	}
+	result, err := db.SelectOne("select id from roles where role = ?", role)
+	if err != nil {
+		return -1, nil
+	}
+	return result.Data[0]["id"].(int64), nil
 }
 
 // Return true if the role name is valid, false otherwise
@@ -211,26 +231,26 @@ func LoadDbFromFile(db *SqliteDB, fname string) error {
 // Returns an error if the role does not exist.
 func GetPolicy(db *SqliteDB, role string) (Policy, error) {
 	// First, confirm the role exists
-	rows, err := db.Select("select role from roles where role = ?", role)
+	role_id, err := getRoleIdDb(db, role)
 	if err != nil {
 		return Policy{}, err
 	}
-	if len(rows.Data) != 1 {
+	if role_id == -1 {
 		return Policy{}, fmt.Errorf("%w: role `%s` does not exist", ErrNoSuchRole, role)
 	}
 
 	// Now return the role data
-	rows, err = db.Select("select distinct control_column from policies where role = ?", role)
+	result, err := db.Select("select distinct control_column from policies where role_id = ?", role_id)
 	if err != nil {
 		return Policy{}, err
 	}
 	control_columns := []string{}
-	for _, row := range rows.Data {
+	for _, row := range result.Data {
 		control_columns = append(control_columns, row["control_column"].(string))
 	}
 	policy := Policy{Role: role}
 	for _, cc := range control_columns {
-		pi, err := GetPolicyItem(db, role, cc)
+		pi, err := GetPolicyItem(db, role_id, cc)
 		if err != nil {
 			return Policy{}, err
 		}
@@ -240,14 +260,14 @@ func GetPolicy(db *SqliteDB, role string) (Policy, error) {
 }
 
 // Return a PolicyItem for this role and control column
-func GetPolicyItem(db *SqliteDB, role, column string) (PolicyItem, error) {
+func GetPolicyItem(db *SqliteDB, role_id int64, column string) (PolicyItem, error) {
 	var column_values []string
-	rows, err := db.Select("select value from policies where role = ? and control_column = ?", role, column)
+	result, err := db.Select("select value from policies where role_id = ? and control_column = ?", role_id, column)
 	if err != nil {
 		return PolicyItem{}, err
 	}
 	column_values = []string{}
-	for _, val := range rows.Data {
+	for _, val := range result.Data {
 		column_values = append(column_values, val["value"].(string))
 	}
 

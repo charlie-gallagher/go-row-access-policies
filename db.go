@@ -92,9 +92,9 @@ func (db *SqliteDB) Setup() error {
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
-	create table if not exists policies(role varchar, control_column varchar, value varchar);
+	create table if not exists policies(role_id integer references roles(id) on delete cascade, control_column varchar, value varchar);
 	delete from policies;
-	create table if not exists roles(role varchar unique);
+	create table if not exists roles(id integer primary key autoincrement, role varchar unique);
 	delete from roles;`); err != nil {
 		return err
 	}

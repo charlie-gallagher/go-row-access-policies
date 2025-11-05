@@ -129,14 +129,19 @@ func TestDbLoadAddsToDatabase_ManuallyRetrieved(t *testing.T) {
 	if err := LoadDbWithPolicies(db, &policy_set); err != nil {
 		t.Fatalf("Error loading db with policies: %v\n", err)
 	}
+	// Get the role_id for "admin"
+	role_id, err := getRoleIdDb(db, "admin")
+	if err != nil {
+		t.Fatalf("Error getting role_id: %v\n", err)
+	}
 	// Verify the value "one" is in the policies table
-	row_result := fetchOneRow(t, db, "select value from policies where role = 'admin' and control_column = 'Region'")
+	row_result := fetchOneRow(t, db, "select value from policies where role_id = ? and control_column = 'Region'", role_id)
 	value := row_result.Data[0]["value"].(string)
 	if value != "one" {
 		t.Errorf("Value mismatch: got %s, want %s\n", value, "one")
 	}
 	// Verify the role "admin" is in the roles table
-	row_result = fetchOneRow(t, db, "select role from roles where role = 'admin'")
+	row_result = fetchOneRow(t, db, "select role from roles where id = 1")
 	role := row_result.Data[0]["role"].(string)
 	if role != "admin" {
 		t.Errorf("Role mismatch: got %s, want %s\n", role, "admin")
@@ -147,11 +152,11 @@ func TestGetPolicyWorks_ManuallyLoaded(t *testing.T) {
 	// Setup: Manually load the policy into the database
 	db := getInitializedDbHandle(t)
 	defer db.Close()
-	if err := db.Exec("insert into policies (role, control_column, value) values ('admin', 'Region', 'one')"); err != nil {
-		t.Fatalf("Error inserting policy: %v\n", err)
-	}
 	if err := db.Exec("insert into roles (role) values ('admin')"); err != nil {
 		t.Fatalf("Error inserting role: %v\n", err)
+	}
+	if err := db.Exec("insert into policies (role_id, control_column, value) values (?, 'Region', 'one')", 1); err != nil {
+		t.Fatalf("Error inserting policy: %v\n", err)
 	}
 	// Test: Get the policy
 	policy, err := GetPolicy(db, "admin")
@@ -385,9 +390,9 @@ func getDbHandle(t *testing.T) *SqliteDB {
 	return &db
 }
 
-func fetchOneRow(t *testing.T, db *SqliteDB, query string) *AccessResult {
+func fetchOneRow(t *testing.T, db *SqliteDB, query string, args ...any) *AccessResult {
 	t.Helper()
-	rows, err := db.SelectOne(query)
+	rows, err := db.SelectOne(query, args...)
 	if err != nil {
 		t.Fatalf("Error querying db: %v\n", err)
 	}

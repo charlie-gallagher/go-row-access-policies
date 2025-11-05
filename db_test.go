@@ -75,8 +75,8 @@ func TestSqliteSetupTruncatesExistingTables(t *testing.T) {
 	defer db.Close()
 
 	if _, err := db.Exec(
-		`insert into policies (role, control_column, value) values (?, ?, ?);`,
-		"admin", "Region", "Southern",
+		`insert into policies (role_id, control_column, value) values (?, ?, ?);`,
+		1, "Region", "Southern",
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -126,15 +126,14 @@ func TestSqliteSelectOneWorks(t *testing.T) {
 
 	// Query for data and inspect result
 	want_map := map[string]string{
-		"role":           "admin",
 		"control_column": "Region",
 		"value":          "Southern",
 	}
-	got_map, err := db.SelectOne("select role, control_column, value from policies where role = ?", "admin")
+	got_map, err := db.SelectOne("select control_column, value from policies where role_id = ?", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys := []string{"role", "control_column", "value"}
+	keys := []string{"control_column", "value"}
 	for _, key := range keys {
 		want := want_map[key]
 		got, ok := got_map.Data[0][key]
@@ -151,7 +150,7 @@ func TestSqliteSelectOneThrowsForNoRows(t *testing.T) {
 	defer db.Close()
 
 	// Query for data and inspect result
-	_, err := db.SelectOne("select role, control_column, value from policies where role = ?", "not_a_role")
+	_, err := db.SelectOne("select control_column, value from policies where role_id = ?", -1)
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Error("expected no rows error")
 	}
@@ -162,7 +161,7 @@ func TestSqliteSelectOneThrowsForTwoRows(t *testing.T) {
 	defer db.Close()
 
 	// Query for data and inspect result
-	_, err := db.SelectOne("select role, control_column, value from policies where control_column = ?", "Region")
+	_, err := db.SelectOne("select control_column, value from policies where control_column = ?", "Region")
 	if !errors.Is(err, ErrTooManyRows) {
 		t.Error("expected too many rows error")
 	}
@@ -172,7 +171,7 @@ func TestSqliteSelectWorksForNoRows(t *testing.T) {
 	db := getSetupSqliteDB(t, ":memory:")
 	defer db.Close()
 
-	got_result, err := db.Select("select role, control_column, value from policies")
+	got_result, err := db.Select("select control_column, value from policies")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,17 +186,16 @@ func TestSqliteSelectWorksForOneRow(t *testing.T) {
 
 	// Query for data and inspect result
 	want_result := []map[string]string{{
-		"role":           "admin",
 		"control_column": "Region",
 		"value":          "Southern",
 	}}
-	got_result, err := db.Select("select role, control_column, value from policies where role = ?", "admin")
+	got_result, err := db.Select("select control_column, value from policies where role_id = ?", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want_map := want_result[0]
 	got_map := got_result.Data[0]
-	keys := []string{"role", "control_column", "value"}
+	keys := []string{"control_column", "value"}
 	for _, key := range keys {
 		want := want_map[key]
 		got, ok := got_map[key]
@@ -216,17 +214,15 @@ func TestSqliteSelectWorksForRows(t *testing.T) {
 	// Query for data and inspect result
 	want_result := []map[string]string{
 		{
-			"role":           "admin",
 			"control_column": "Region",
 			"value":          "Southern",
 		},
 		{
-			"role":           "employee",
 			"control_column": "Region",
 			"value":          "Eastern",
 		},
 	}
-	got_result, err := db.Select("select role, control_column, value from policies where control_column = ?", "Region")
+	got_result, err := db.Select("select control_column, value from policies where control_column = ?", "Region")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +234,7 @@ func TestSqliteSelectWorksForRows(t *testing.T) {
 	for i := range want_result {
 		want_map := want_result[i]
 		got_map := got_result.Data[i]
-		keys := []string{"role", "control_column", "value"}
+		keys := []string{"control_column", "value"}
 		for _, key := range keys {
 			want := want_map[key]
 			got, ok := got_map[key]
@@ -339,6 +335,7 @@ func TestSqliteBeginRollsBack(t *testing.T) {
 
 // This is a scratch test for experimenting with column types
 func TestScratchTestForColumnTypes(t *testing.T) {
+	t.Skip("This is a scratch test for experimenting with column types")
 	sqlite_db := getSqliteDBWithData(t, ":memory:")
 	defer sqlite_db.Close()
 
@@ -436,14 +433,14 @@ func getSqliteDBWithData(t *testing.T, connect string) SqliteDB {
 	db := getSetupSqliteDB(t, connect)
 	// TODO: use prepared statement
 	if err := db.Exec(
-		`insert into policies (role, control_column, value) values (?, ?, ?);`,
-		"admin", "Region", "Southern",
+		`insert into policies (role_id, control_column, value) values (?, ?, ?);`,
+		1, "Region", "Southern",
 	); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Exec(
-		`insert into policies (role, control_column, value) values (?, ?, ?);`,
-		"employee", "Region", "Eastern",
+		`insert into policies (role_id, control_column, value) values (?, ?, ?);`,
+		2, "Region", "Eastern",
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -463,9 +460,9 @@ func getRawInitializedDbHandle(t *testing.T) *sql.DB {
 	}
 
 	if _, err := db.Exec(`
-	create table if not exists policies(role varchar, control_column varchar, value varchar);
+	create table if not exists policies(role_id integer, control_column varchar, value varchar);
 	delete from policies;
-	create table if not exists roles(role varchar unique);
+	create table if not exists roles(id integer primary key autoincrement, role varchar unique);
 	delete from roles;`); err != nil {
 		t.Fatal(err)
 	}
