@@ -32,6 +32,7 @@ type AccessResult struct {
 	Columns []ColumnInfo
 }
 
+// Create using newAccessResult
 type ColumnInfo struct {
 	Name   string
 	DbType string
@@ -70,6 +71,7 @@ func (db *SqliteDB) Close() error {
 	return db.handle.Close()
 }
 
+// Get a list of all tables in the database
 func (db *SqliteDB) ListTables() ([]string, error) {
 	var output []string
 	rows, err := db.Select("select name from sqlite_master where type = 'table' order by name")
@@ -82,6 +84,7 @@ func (db *SqliteDB) ListTables() ([]string, error) {
 	return output, nil
 }
 
+// Setup creates the necessary tables in the database
 func (db *SqliteDB) Setup() error {
 	tx, err := db.handle.Begin()
 	if err != nil {
@@ -106,6 +109,8 @@ func (db *SqliteDB) Exec(stmt string, args ...any) error {
 	return nil
 }
 
+// SelectOne guarantees that exactly one row is returned
+// If nrows != 1, an error is returned
 func (db *SqliteDB) SelectOne(query string, args ...any) (*AccessResult, error) {
 	rows, err := db.handle.Query(query, args...)
 	if err != nil {
@@ -120,6 +125,8 @@ func (db *SqliteDB) SelectOne(query string, args ...any) (*AccessResult, error) 
 	return all_rows, nil
 }
 
+// Select returns all rows from the query
+// It returns between 0 and 1000 rows and doesn't support pagination
 func (db *SqliteDB) Select(query string, args ...any) (*AccessResult, error) {
 	rows, err := db.handle.Query(query, args...)
 	if err != nil {
