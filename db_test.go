@@ -137,7 +137,7 @@ func TestSqliteSelectOneWorks(t *testing.T) {
 	keys := []string{"role", "control_column", "value"}
 	for _, key := range keys {
 		want := want_map[key]
-		got, ok := got_map[key]
+		got, ok := got_map.Data[0][key]
 		if !ok {
 			t.Errorf("Expected column %s but didn't find it", key)
 		} else if got != want {
@@ -176,7 +176,7 @@ func TestSqliteSelectWorksForNoRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got_result) != 0 {
+	if len(got_result.Data) != 0 {
 		t.Errorf("expected no rows, got %v", got_result)
 	}
 }
@@ -196,7 +196,7 @@ func TestSqliteSelectWorksForOneRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	want_map := want_result[0]
-	got_map := got_result[0]
+	got_map := got_result.Data[0]
 	keys := []string{"role", "control_column", "value"}
 	for _, key := range keys {
 		want := want_map[key]
@@ -231,13 +231,13 @@ func TestSqliteSelectWorksForRows(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(got_result) != 2 {
-		t.Fatalf("Want length 2, got %d", len(got_result))
+	if len(got_result.Data) != 2 {
+		t.Fatalf("Want length 2, got %d", len(got_result.Data))
 	}
 
 	for i := range want_result {
 		want_map := want_result[i]
-		got_map := got_result[i]
+		got_map := got_result.Data[i]
 		keys := []string{"role", "control_column", "value"}
 		for _, key := range keys {
 			want := want_map[key]
@@ -275,7 +275,7 @@ func TestSqlitePreparedStatementWorks(t *testing.T) {
 		t.Fatal(err)
 	}
 	got_roles := []string{}
-	for _, v := range result {
+	for _, v := range result.Data {
 		got_roles = append(got_roles, v["role"].(string))
 	}
 	if !slices.Equal(roles, got_roles) {
@@ -305,8 +305,8 @@ func TestSqliteBeginCommits(t *testing.T) {
 		t.Fatalf("select: %v", err)
 	}
 
-	if len(result) != 1 {
-		t.Errorf("expected 1 rows, got %d", len(result))
+	if len(result.Data) != 1 {
+		t.Errorf("expected 1 rows, got %d", len(result.Data))
 	}
 }
 
@@ -332,8 +332,8 @@ func TestSqliteBeginRollsBack(t *testing.T) {
 		t.Fatalf("select: %v", err)
 	}
 
-	if len(result) != 0 {
-		t.Errorf("expected 0 rows, got %d", len(result))
+	if len(result.Data) != 0 {
+		t.Errorf("expected 0 rows, got %d", len(result.Data))
 	}
 }
 

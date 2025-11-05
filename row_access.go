@@ -215,7 +215,7 @@ func GetPolicy(db *SqliteDB, role string) (Policy, error) {
 	if err != nil {
 		return Policy{}, err
 	}
-	if len(rows) != 1 {
+	if len(rows.Data) != 1 {
 		return Policy{}, fmt.Errorf("%w: role `%s` does not exist", ErrNoSuchRole, role)
 	}
 
@@ -225,7 +225,7 @@ func GetPolicy(db *SqliteDB, role string) (Policy, error) {
 		return Policy{}, err
 	}
 	control_columns := []string{}
-	for _, row := range rows {
+	for _, row := range rows.Data {
 		control_columns = append(control_columns, row["control_column"].(string))
 	}
 	policy := Policy{Role: role}
@@ -247,7 +247,7 @@ func GetPolicyItem(db *SqliteDB, role, column string) (PolicyItem, error) {
 		return PolicyItem{}, err
 	}
 	column_values = []string{}
-	for _, val := range rows {
+	for _, val := range rows.Data {
 		column_values = append(column_values, val["value"].(string))
 	}
 

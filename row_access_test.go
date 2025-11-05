@@ -130,12 +130,14 @@ func TestDbLoadAddsToDatabase_ManuallyRetrieved(t *testing.T) {
 		t.Fatalf("Error loading db with policies: %v\n", err)
 	}
 	// Verify the value "one" is in the policies table
-	value := fetchOneRow(t, db, "select value from policies where role = 'admin' and control_column = 'Region'")["value"].(string)
+	row_result := fetchOneRow(t, db, "select value from policies where role = 'admin' and control_column = 'Region'")
+	value := row_result.Data[0]["value"].(string)
 	if value != "one" {
 		t.Errorf("Value mismatch: got %s, want %s\n", value, "one")
 	}
 	// Verify the role "admin" is in the roles table
-	role := fetchOneRow(t, db, "select role from roles where role = 'admin'")["role"].(string)
+	row_result = fetchOneRow(t, db, "select role from roles where role = 'admin'")
+	role := row_result.Data[0]["role"].(string)
 	if role != "admin" {
 		t.Errorf("Role mismatch: got %s, want %s\n", role, "admin")
 	}
@@ -383,7 +385,7 @@ func getDbHandle(t *testing.T) *SqliteDB {
 	return &db
 }
 
-func fetchOneRow(t *testing.T, db *SqliteDB, query string) map[string]any {
+func fetchOneRow(t *testing.T, db *SqliteDB, query string) *AccessResult {
 	t.Helper()
 	rows, err := db.SelectOne(query)
 	if err != nil {

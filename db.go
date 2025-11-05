@@ -16,8 +16,8 @@ type AccessDB interface {
 	Begin() (*sql.Tx, error)
 	Prepare(query string) (*sql.Stmt, error)
 	Exec(stmt string, args ...any) error
-	SelectOne(query string, args ...any) (map[string]any, error)
-	Select(query string, args ...any) ([]map[string]any, error)
+	SelectOne(query string, args ...any) (*AccessResult, error)
+	Select(query string, args ...any) (*AccessResult, error)
 }
 
 var ErrTooManyRows = errors.New("expected 1 row")
@@ -76,7 +76,7 @@ func (db *SqliteDB) ListTables() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, row := range rows {
+	for _, row := range rows.Data {
 		output = append(output, row["name"].(string))
 	}
 	return output, nil
@@ -106,33 +106,33 @@ func (db *SqliteDB) Exec(stmt string, args ...any) error {
 	return nil
 }
 
-func (db *SqliteDB) SelectOne(query string, args ...any) (map[string]any, error) {
+func (db *SqliteDB) SelectOne(query string, args ...any) (*AccessResult, error) {
 	rows, err := db.handle.Query(query, args...)
 	if err != nil {
-		return map[string]any{}, err
+		return nil, err
 	}
 	defer rows.Close()
 
 	all_rows, err := db.getRows(rows, 1, 1)
 	if err != nil {
-		return map[string]any{}, err
+		return nil, err
 	}
-	return all_rows.Data[0], nil
+	return all_rows, nil
 }
 
-func (db *SqliteDB) Select(query string, args ...any) ([]map[string]any, error) {
+func (db *SqliteDB) Select(query string, args ...any) (*AccessResult, error) {
 	rows, err := db.handle.Query(query, args...)
 	if err != nil {
-		return []map[string]any{}, err
+		return nil, err
 	}
 	defer rows.Close()
 
 	out, err := db.getRows(rows, 0, 1000)
 	if err != nil {
-		return []map[string]any{}, err
+		return nil, err
 	}
 
-	return out.Data, nil
+	return out, nil
 }
 
 func (db *SqliteDB) getRows(rows *sql.Rows, minRows, maxRows int) (*AccessResult, error) {
